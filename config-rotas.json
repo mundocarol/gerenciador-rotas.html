@@ -1,0 +1,115 @@
+{
+  "versao": "1.0",
+  "ultimaAtualizacao": "2026-04-01 10:00:00",
+  "senha": "mundocarol2026",
+  
+  "configuracoesGlobais": {
+    "prazoMinimoDias": 1,
+    "horarioFechamentoDiario": 17,
+    "horarioAberturaDiario": 8,
+    "minutosAntesFecharRota": 40,
+    "horaViradaDia": 3
+  },
+  
+  "regrasAutomaticas": {
+    "domingo": {
+      "ativa": true,
+      "bloquearPropriasRotas": true,
+      "bloquearPrimeiraRotaSegunda": true
+    },
+    "sabado": {
+      "ativa": true,
+      "horarioInicioBloqueio": 16,
+      "bloquearPrimeiraRotaDomingo": true,
+      "bloquearPrimeiraRotaSegunda": true
+    },
+    "diasUteis": {
+      "ativa": true,
+      "bloquearPrimeiraRotaProximoDiaUtil": true
+    },
+    "sexta": {
+      "ativa": true,
+      "bloquearPrimeiraRotaSabado": true
+    }
+  },
+  
+  "rotasPadrao": {
+    "segunda": {
+      "horarios": [
+        {"inicio": "07:30", "fim": "09:30", "capacidade": 30, "taxaAdicional": 0},
+        {"inicio": "09:30", "fim": "11:30", "capacidade": 30, "taxaAdicional": 0},
+        {"inicio": "13:30", "fim": "15:30", "capacidade": 30, "taxaAdicional": 0},
+        {"inicio": "15:30", "fim": "18:30", "capacidade": 30, "taxaAdicional": 0},
+        {"inicio": "19:30", "fim": "21:30", "capacidade": 30, "taxaAdicional": 19.90}
+      ]
+    },
+    "terca": {
+      "herdar": "segunda"
+    },
+    "quarta": {
+      "herdar": "segunda"
+    },
+    "quinta": {
+      "herdar": "segunda"
+    },
+    "sexta": {
+      "herdar": "segunda"
+    },
+    "sabado": {
+      "horarios": [
+        {"inicio": "07:30", "fim": "10:30", "capacidade": 30, "taxaAdicional": 0},
+        {"inicio": "10:30", "fim": "12:30", "capacidade": 30, "taxaAdicional": 0},
+        {"inicio": "12:30", "fim": "16:30", "capacidade": 30, "taxaAdicional": 0}
+      ]
+    },
+    "domingo": {
+      "horarios": [
+        {"inicio": "08:00", "fim": "10:00", "capacidade": 10, "taxaAdicional": 19.90}
+      ]
+    }
+  },
+  
+  "bloqueiosPontuais": [
+    {
+      "data": "2026-04-01",
+      "horario": "09:30-11:30",
+      "motivo": "Rota lotada",
+      "bloqueadoEm": "2026-04-01 08:00:00"
+    }
+  ],
+  
+  "bloqueiosDiaInteiro": [],
+  
+  "feriados": [
+    "2026-01-01",
+    "2026-04-21",
+    "2026-05-01",
+    "2026-09-07",
+    "2026-10-12",
+    "2026-11-02",
+    "2026-11-15",
+    "2026-12-25"
+  ],
+  
+  "diasEspeciais": [
+    {
+      "data": "2026-12-24",
+      "nome": "Véspera de Natal",
+      "horarios": [
+        {"inicio": "07:30", "fim": "11:30", "capacidade": 20, "taxaAdicional": 0},
+        {"inicio": "13:30", "fim": "17:30", "capacidade": 20, "taxaAdicional": 0}
+      ]
+    },
+    {
+      "data": "2026-12-31",
+      "nome": "Véspera de Ano Novo",
+      "horarios": [
+        {"inicio": "07:30", "fim": "11:30", "capacidade": 15, "taxaAdicional": 0}
+      ]
+    }
+  ],
+  
+  "diasFechados": [
+    "2026-12-25"
+  ]
+}
