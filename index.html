@@ -323,6 +323,12 @@
             margin: 0;
         }
 
+        .btn-recomecar {
+            background: #ff9800;
+            margin-top: 12px;
+            width: 100%;
+        }
+
         /* Popup informativo inicial */
         .info-popup {
             position: fixed;
@@ -604,6 +610,7 @@
                 <div class="dica" style="font-size: 11px; color: #ffaa44; margin-top: 8px; text-align: center;">
                     ⚠️ Ajuste o retângulo VERMELHO sobre um objeto de tamanho conhecido
                 </div>
+                <button id="recomecarBtn" class="btn-recomecar">🔄 Começar de novo</button>
             </div>
         </div>
     </div>
@@ -683,6 +690,7 @@
     const orientHorizontalBtn = document.getElementById('orientHorizontalBtn');
     const refTamanho = document.getElementById('refTamanho');
     const aplicarRef = document.getElementById('aplicarRef');
+    const recomecarBtn = document.getElementById('recomecarBtn');
     
     const sharePopup = document.getElementById('sharePopup');
     const shareBtn = document.getElementById('shareBtn');
@@ -692,6 +700,43 @@
     let canvasW, canvasH;
     let cameraAtiva = false;
     let streamAtual = null;
+    
+    // Função para recomeçar (voltar para a tela inicial)
+    function recomecar() {
+        // Parar a câmera se estiver ativa
+        pararCamera();
+        
+        // Resetar todos os estados
+        imagemCapturada = false;
+        fotoBase64 = null;
+        referenciaConfigurada = false;
+        valoresAplicados = false;
+        orientacaoRef = null;
+        referenciaTamanhoReal = null;
+        pixelsPorMetro = null;
+        
+        // Resetar retângulos
+        resetarEstado();
+        
+        // Resetar UI
+        orientVerticalBtn.classList.remove('ativo');
+        orientHorizontalBtn.classList.remove('ativo');
+        refTamanho.value = '';
+        
+        // Esconder tela de medição e mostrar câmera
+        medicaoScreen.style.display = 'none';
+        cameraScreen.style.display = 'flex';
+        
+        // Reiniciar a câmera
+        iniciarCamera();
+        
+        // Resetar variáveis de UI
+        saveRefBtn.style.display = 'none';
+        saveMedicaoBtn.style.display = 'none';
+        painel.classList.remove('oculto');
+        eyeBtn.innerHTML = '🚫';
+        painelVisivel = true;
+    }
     
     // Fechar popup informativo
     closeInfoBtn.addEventListener('click', () => {
@@ -1386,6 +1431,7 @@
     eyeBtn.addEventListener('click', togglePainel);
     saveMedicaoBtn.addEventListener('click', finalizarMedicao);
     saveRefBtn.addEventListener('click', salvarReferencia);
+    recomecarBtn.addEventListener('click', recomecar);
     shareBtn.addEventListener('click', compartilhar);
     saveLocalBtn.addEventListener('click', salvarLocal);
     cancelPopupBtn.addEventListener('click', fecharPopup);
