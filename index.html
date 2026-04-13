@@ -143,7 +143,7 @@
             transform: scale(0.95);
         }
 
-        /* Botão capturar na tela de medição */
+        /* Botão salvar na tela de medição */
         .save-medicao-btn {
             position: absolute;
             bottom: 20px;
@@ -248,6 +248,26 @@
             background: #2196f3;
         }
 
+        .modo-btn.desabilitado {
+            background: #555;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .ref-group {
+            background: #222;
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .ref-title {
+            font-size: 12px;
+            color: #ffaa44;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
         .orientacao {
             display: flex;
             gap: 10px;
@@ -270,10 +290,7 @@
         }
 
         .ref-input {
-            background: #222;
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 12px;
+            margin-top: 8px;
         }
 
         .ref-input label {
@@ -327,44 +344,60 @@
         }
 
         /* Popup de confirmação */
-        .popup-confirm {
-            position: absolute;
-            bottom: 100px;
-            left: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 20px;
-            z-index: 40;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.2);
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .popup-confirm.oculto {
+        .popup-overlay.oculto {
             display: none;
         }
 
-        .popup-confirm p {
-            margin-bottom: 15px;
-            font-size: 16px;
+        .popup-content {
+            background: #1e1e2e;
+            border-radius: 24px;
+            padding: 24px;
+            margin: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            max-width: 350px;
+            width: calc(100% - 40px);
+        }
+
+        .popup-content p {
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #fff;
         }
 
         .popup-buttons {
             display: flex;
-            gap: 10px;
+            flex-direction: column;
+            gap: 12px;
         }
 
         .popup-buttons button {
             margin: 0;
-            padding: 12px;
+            padding: 14px;
         }
 
-        .btn-confirm {
-            background: #4caf50;
+        .btn-share {
+            background: #25D366;
         }
 
-        .btn-cancel {
+        .btn-save {
+            background: #2196f3;
+        }
+
+        .btn-cancel-popup {
             background: #f44336;
         }
 
@@ -389,7 +422,7 @@
         <img id="fotoCapturada" alt="Foto capturada">
         <canvas id="canvasMedicao"></canvas>
 
-        <div class="eye-btn" id="eyeBtn">👁️</div>
+        <div class="eye-btn" id="eyeBtn">🚫</div>
         <div class="save-medicao-btn" id="saveMedicaoBtn">📸</div>
 
         <div class="painel" id="painel">
@@ -409,36 +442,37 @@
 
             <div class="modos">
                 <button id="modoRefBtn" class="modo-btn ativo">📏 Ajustar Referência</button>
-                <button id="modoRetBtn" class="modo-btn">📐 Medir Área</button>
+                <button id="modoRetBtn" class="modo-btn desabilitado" disabled>📐 Medir Área</button>
             </div>
 
-            <div id="refConfig">
+            <div id="refGroup" class="ref-group">
+                <div class="ref-title">🔧 CONFIGURAÇÃO DA REFERÊNCIA</div>
                 <div class="orientacao">
                     <button id="orientVerticalBtn" class="orientacao-btn ativo">📏 Vertical</button>
                     <button id="orientHorizontalBtn" class="orientacao-btn">📐 Horizontal</button>
                 </div>
                 <div class="ref-input">
-                    <label>🔧 Tamanho real da referência (metros):</label>
+                    <label>Tamanho real da referência (metros):</label>
                     <div class="input-group">
-                        <input type="number" id="refTamanho" step="0.01" value="1.00">
+                        <input type="number" id="refTamanho" step="0.01" placeholder="Digite o tamanho">
                         <button id="aplicarRef">Aplicar</button>
                     </div>
                 </div>
             </div>
 
-            <div id="retConfig" style="display:none;">
-            </div>
-
             <button id="resetBtn" class="btn-reset">🗑️ Nova Foto</button>
         </div>
     </div>
+</div>
 
-    <!-- Popup de confirmação -->
-    <div id="popupConfirm" class="popup-confirm oculto">
-        <p>📸 Salvar esta medição?</p>
+<!-- Popup de compartilhamento -->
+<div id="sharePopup" class="popup-overlay oculto">
+    <div class="popup-content">
+        <p>📸 Compartilhar Medição</p>
         <div class="popup-buttons">
-            <button id="confirmSaveBtn" class="btn-confirm">✅ Salvar</button>
-            <button id="cancelSaveBtn" class="btn-cancel">❌ Cancelar</button>
+            <button id="shareBtn" class="btn-share">📱 Compartilhar</button>
+            <button id="saveLocalBtn" class="btn-save">💾 Salvar no Celular</button>
+            <button id="cancelPopupBtn" class="btn-cancel-popup">✖️ Cancelar</button>
         </div>
     </div>
 </div>
@@ -460,25 +494,26 @@
     let orientacaoRef = 'vertical';
     let imagemCapturada = false;
     let fotoBase64 = null;
+    let referenciaConfigurada = false;
     
     // Dimensões da imagem capturada
     let imgWidth = 0;
     let imgHeight = 0;
     let imgRect = { x: 0, y: 0, w: 0, h: 0 };
     
-    // Retângulo de medição (verde)
+    // Retângulo de medição (verde) - apenas área interna conta
     let retangulo = {
         x: 0.3, y: 0.3,
         width: 0.4, height: 0.4
     };
     
-    // Retângulo de referência (vermelho)
+    // Retângulo de referência (vermelho) - apenas área interna conta
     let referenciaRet = {
         x: 0.4, y: 0.5,
         width: 0.2, height: 0.2
     };
     
-    let referenciaTamanhoReal = 1.0;
+    let referenciaTamanhoReal = null;
     let pixelsPorMetro = null;
     let arrastando = false;
     let itemArrastando = null;
@@ -493,20 +528,21 @@
     const painel = document.getElementById('painel');
     const modoRefBtn = document.getElementById('modoRefBtn');
     const modoRetBtn = document.getElementById('modoRetBtn');
-    const refConfig = document.getElementById('refConfig');
-    const retConfig = document.getElementById('retConfig');
+    const refGroup = document.getElementById('refGroup');
     const orientVerticalBtn = document.getElementById('orientVerticalBtn');
     const orientHorizontalBtn = document.getElementById('orientHorizontalBtn');
     const refTamanho = document.getElementById('refTamanho');
     const aplicarRef = document.getElementById('aplicarRef');
     const resetBtn = document.getElementById('resetBtn');
-    const popupConfirm = document.getElementById('popupConfirm');
-    const confirmSaveBtn = document.getElementById('confirmSaveBtn');
-    const cancelSaveBtn = document.getElementById('cancelSaveBtn');
+    const sharePopup = document.getElementById('sharePopup');
+    const shareBtn = document.getElementById('shareBtn');
+    const saveLocalBtn = document.getElementById('saveLocalBtn');
+    const cancelPopupBtn = document.getElementById('cancelPopupBtn');
     
     let canvasW, canvasH;
     let cameraAtiva = false;
     let streamAtual = null;
+    let imagemCapturadaBlob = null;
     
     // Iniciar câmera
     async function iniciarCamera() {
@@ -544,9 +580,13 @@
         const tempCtx = canvas.getContext('2d');
         tempCtx.drawImage(video, 0, 0, canvas.width, canvas.height);
         fotoBase64 = canvas.toDataURL('image/jpeg', 0.95);
+        
+        canvas.toBlob((blob) => {
+            imagemCapturadaBlob = blob;
+        }, 'image/jpeg', 0.95);
+        
         fotoCapturada.src = fotoBase64;
         
-        // Aguardar imagem carregar para obter dimensões
         fotoCapturada.onload = () => {
             imgWidth = fotoCapturada.naturalWidth;
             imgHeight = fotoCapturada.naturalHeight;
@@ -579,7 +619,7 @@
         }
     }
     
-    // Converter coordenada normalizada para pixel na imagem
+    // Converter coordenada normalizada para pixel na imagem (centro da linha)
     function normToPixel(p) {
         return {
             x: imgRect.x + p.x * imgRect.w,
@@ -595,7 +635,7 @@
         };
     }
     
-    // Obter tamanho do retângulo de referência em pixels
+    // Obter tamanho do retângulo de referência em pixels (área interna)
     function getReferenciaPixels() {
         if (orientacaoRef === 'vertical') {
             return referenciaRet.height * imgRect.h;
@@ -606,15 +646,19 @@
     
     // Atualizar escala
     function atualizarEscala() {
-        const tamanhoPx = getReferenciaPixels();
-        if (tamanhoPx > 0 && referenciaTamanhoReal > 0) {
-            pixelsPorMetro = tamanhoPx / referenciaTamanhoReal;
+        if (referenciaTamanhoReal && referenciaTamanhoReal > 0) {
+            const tamanhoPx = getReferenciaPixels();
+            if (tamanhoPx > 0) {
+                pixelsPorMetro = tamanhoPx / referenciaTamanhoReal;
+                return true;
+            }
         }
+        return false;
     }
     
-    // Obter dimensões em metros
+    // Obter dimensões em metros (apenas área interna do retângulo)
     function getMetros() {
-        if (!pixelsPorMetro) return { altura: null, largura: null, area: null };
+        if (!pixelsPorMetro || !referenciaConfigurada) return { altura: null, largura: null, area: null };
         const altPx = retangulo.height * imgRect.h;
         const largPx = retangulo.width * imgRect.w;
         const altM = altPx / pixelsPorMetro;
@@ -657,44 +701,34 @@
         };
         
         ctx.strokeStyle = '#ff3366';
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.setLineDash([]);
         ctx.strokeRect(refPx.x, refPx.y, refPx.w, refPx.h);
         
-        ctx.fillStyle = 'rgba(255,51,102,0.15)';
+        ctx.fillStyle = 'rgba(255,51,102,0.1)';
         ctx.fillRect(refPx.x, refPx.y, refPx.w, refPx.h);
+        
+        // Linha pontilhada interna para mostrar área considerada
+        ctx.strokeStyle = '#ff8888';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(refPx.x + 2, refPx.y + 2, refPx.w - 4, refPx.h - 4);
+        ctx.setLineDash([]);
         
         // Indicador visual
         if (orientacaoRef === 'vertical') {
-            ctx.strokeStyle = '#ff8888';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(refPx.x + refPx.w/2, refPx.y);
-            ctx.lineTo(refPx.x + refPx.w/2, refPx.y + refPx.h);
-            ctx.stroke();
-            
             ctx.font = "bold 10px sans-serif";
             ctx.fillStyle = '#ff8888';
-            ctx.fillText("📏 Altura", refPx.x + refPx.w/2 + 5, refPx.y + refPx.h/2);
+            ctx.fillText("📏 Altura (área interna)", refPx.x + refPx.w/2 + 5, refPx.y + refPx.h/2);
         } else {
-            ctx.strokeStyle = '#ff8888';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(refPx.x, refPx.y + refPx.h/2);
-            ctx.lineTo(refPx.x + refPx.w, refPx.y + refPx.h/2);
-            ctx.stroke();
-            
             ctx.font = "bold 10px sans-serif";
             ctx.fillStyle = '#ff8888';
-            ctx.fillText("📏 Largura", refPx.x + refPx.w/2 - 20, refPx.y + refPx.h/2 - 5);
+            ctx.fillText("📏 Largura (área interna)", refPx.x + refPx.w/2 - 40, refPx.y + refPx.h/2 - 5);
         }
-        ctx.setLineDash([]);
         
         // Alças do retângulo de referência
         if (modoAtual === 'referencia') {
-            const tamanhoAlca = 18;
+            const tamanhoAlca = 16;
             const cantos = [
                 { x: refPx.x, y: refPx.y },
                 { x: refPx.x + refPx.w, y: refPx.y },
@@ -717,21 +751,22 @@
             const centroY = refPx.y + refPx.h/2;
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
             ctx.beginPath();
-            ctx.arc(centroX, centroY, 14, 0, 2*Math.PI);
+            ctx.arc(centroX, centroY, 12, 0, 2*Math.PI);
             ctx.fill();
             ctx.fillStyle = '#ff6666';
             ctx.beginPath();
-            ctx.arc(centroX, centroY, 7, 0, 2*Math.PI);
+            ctx.arc(centroX, centroY, 6, 0, 2*Math.PI);
             ctx.fill();
         }
         
         // Texto do tamanho da referência
-        const tamanhoPx = getReferenciaPixels();
-        ctx.font = "bold 12px sans-serif";
-        ctx.fillStyle = '#ff99aa';
-        ctx.shadowBlur = 2;
-        ctx.fillText(`${referenciaTamanhoReal.toFixed(2)}m`, refPx.x + refPx.w/2 - 20, refPx.y - 8);
-        ctx.shadowBlur = 0;
+        if (referenciaTamanhoReal) {
+            ctx.font = "bold 12px sans-serif";
+            ctx.fillStyle = '#ff99aa';
+            ctx.shadowBlur = 2;
+            ctx.fillText(`${referenciaTamanhoReal.toFixed(2)}m`, refPx.x + refPx.w/2 - 20, refPx.y - 8);
+            ctx.shadowBlur = 0;
+        }
         
         // Desenhar RETÂNGULO DE MEDIÇÃO (verde)
         const retPx = {
@@ -743,15 +778,22 @@
         
         const corRetangulo = modoAtual === 'retangulo' ? '#00ffcc' : '#88aaff';
         ctx.strokeStyle = corRetangulo;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.strokeRect(retPx.x, retPx.y, retPx.w, retPx.h);
         
-        ctx.fillStyle = modoAtual === 'retangulo' ? 'rgba(0,255,200,0.15)' : 'rgba(136,170,255,0.1)';
+        ctx.fillStyle = modoAtual === 'retangulo' ? 'rgba(0,255,200,0.1)' : 'rgba(136,170,255,0.05)';
         ctx.fillRect(retPx.x, retPx.y, retPx.w, retPx.h);
+        
+        // Linha pontilhada interna
+        ctx.strokeStyle = '#88ffcc';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(retPx.x + 2, retPx.y + 2, retPx.w - 4, retPx.h - 4);
+        ctx.setLineDash([]);
         
         // Mostrar medidas fora do retângulo
         const dimensoes = getMetros();
-        if (dimensoes.altura && dimensoes.largura) {
+        if (dimensoes.altura && dimensoes.largura && referenciaConfigurada) {
             ctx.font = "bold 14px sans-serif";
             ctx.shadowBlur = 0;
             
@@ -780,8 +822,8 @@
         }
         
         // Alças do retângulo de medição
-        if (modoAtual === 'retangulo') {
-            const tamanhoAlca = 18;
+        if (modoAtual === 'retangulo' && referenciaConfigurada) {
+            const tamanhoAlca = 16;
             const cantos = [
                 { x: retPx.x, y: retPx.y },
                 { x: retPx.x + retPx.w, y: retPx.y },
@@ -804,16 +846,16 @@
             const centroY = retPx.y + retPx.h/2;
             ctx.fillStyle = 'rgba(255,255,255,0.4)';
             ctx.beginPath();
-            ctx.arc(centroX, centroY, 14, 0, 2*Math.PI);
+            ctx.arc(centroX, centroY, 12, 0, 2*Math.PI);
             ctx.fill();
             ctx.fillStyle = '#00ffcc';
             ctx.beginPath();
-            ctx.arc(centroX, centroY, 7, 0, 2*Math.PI);
+            ctx.arc(centroX, centroY, 6, 0, 2*Math.PI);
             ctx.fill();
         }
         
         atualizarEscala();
-        if (dimensoes.altura && dimensoes.largura) {
+        if (dimensoes.altura && dimensoes.largura && referenciaConfigurada) {
             alturaDisplay.innerHTML = dimensoes.altura.toFixed(3) + ' m';
             larguraDisplay.innerHTML = dimensoes.largura.toFixed(3) + ' m';
             areaDisplay.innerHTML = dimensoes.area.toFixed(3) + ' m²';
@@ -962,29 +1004,42 @@
     }
     
     function mudarModo(modo) {
+        if (modo === 'retangulo' && !referenciaConfigurada) {
+            alert("⚠️ Primeiro configure a referência!\n\n1. Ajuste o retângulo VERMELHO sobre um objeto de tamanho conhecido\n2. Digite o tamanho real e clique em APLICAR");
+            return;
+        }
+        
         modoAtual = modo;
         if (modo === 'referencia') {
             modoRefBtn.classList.add('ativo');
             modoRetBtn.classList.remove('ativo');
-            refConfig.style.display = 'block';
-            retConfig.style.display = 'none';
+            refGroup.style.display = 'block';
         } else {
             modoRefBtn.classList.remove('ativo');
             modoRetBtn.classList.add('ativo');
-            refConfig.style.display = 'none';
-            retConfig.style.display = 'block';
+            refGroup.style.display = 'none';
         }
         desenhar();
     }
     
     function aplicarReferencia() {
-        referenciaTamanhoReal = parseFloat(refTamanho.value);
-        if (isNaN(referenciaTamanhoReal) || referenciaTamanhoReal <= 0) {
-            referenciaTamanhoReal = 1.0;
-            refTamanho.value = '1.00';
+        const valor = parseFloat(refTamanho.value);
+        if (isNaN(valor) || valor <= 0) {
+            alert("⚠️ Digite um valor válido maior que zero!");
+            return;
         }
+        
+        referenciaTamanhoReal = valor;
+        referenciaConfigurada = true;
+        
+        // Habilitar botão de medir área
+        modoRetBtn.classList.remove('desabilitado');
+        modoRetBtn.disabled = false;
+        
         atualizarEscala();
         desenhar();
+        
+        alert(`✅ Referência configurada: ${valor.toFixed(2)} metros\n\nAgora vá para "Medir Área" e ajuste o retângulo VERDE na placa.`);
     }
     
     function resetMedicoes() {
@@ -993,7 +1048,16 @@
             x: 0.4, y: 0.5,
             width: 0.2, height: 0.2
         };
+        referenciaTamanhoReal = null;
+        referenciaConfigurada = false;
         pixelsPorMetro = null;
+        modoAtual = 'referencia';
+        modoRefBtn.classList.add('ativo');
+        modoRetBtn.classList.remove('ativo');
+        modoRetBtn.classList.add('desabilitado');
+        modoRetBtn.disabled = true;
+        refGroup.style.display = 'block';
+        refTamanho.value = '';
         aplicarRestricaoReferencia();
         if (imagemCapturada) desenhar();
     }
@@ -1002,20 +1066,11 @@
         cameraScreen.style.display = 'block';
         medicaoScreen.style.display = 'none';
         imagemCapturada = false;
+        referenciaConfigurada = false;
         iniciarCamera();
     }
     
-    function mostrarPopup() {
-        const dim = getMetros();
-        if (!dim.altura || !dim.largura) {
-            alert("⚠️ Ajuste a referência e o retângulo primeiro!");
-            return false;
-        }
-        popupConfirm.classList.remove('oculto');
-        return true;
-    }
-    
-    async function executarCaptura() {
+    async function criarImagemFinal() {
         const dim = getMetros();
         
         const printCanvas = document.createElement('canvas');
@@ -1031,7 +1086,7 @@
         
         printCtx.drawImage(img, 0, 0, img.width, img.height, imgRect.x, imgRect.y, imgRect.w, imgRect.h);
         
-        // Desenhar retângulo de medição (verde)
+        // Desenhar retângulo de medição (verde) - apenas borda
         const retPx = {
             x: imgRect.x + retangulo.x * imgRect.w,
             y: imgRect.y + retangulo.y * imgRect.h,
@@ -1080,19 +1135,65 @@
         printCtx.shadowBlur = 0;
         printCtx.fillText(textoInfo, 15, printCanvas.height - 18);
         
-        // Salvar
-        printCanvas.toBlob((blob) => {
-            const link = document.createElement('a');
-            link.download = `medicao_${Date.now()}.png`;
-            link.href = URL.createObjectURL(blob);
-            link.click();
-            URL.revokeObjectURL(link.href);
-            alert("📸 Imagem salva!");
-        });
+        return printCanvas;
+    }
+    
+    async function mostrarPopupSalvar() {
+        const dim = getMetros();
+        if (!dim.altura || !dim.largura || !referenciaConfigurada) {
+            alert("⚠️ Primeiro configure a referência e meça a área!");
+            return;
+        }
+        sharePopup.classList.remove('oculto');
+    }
+    
+    async function compartilhar() {
+        try {
+            const printCanvas = await criarImagemFinal();
+            printCanvas.toBlob(async (blob) => {
+                const file = new File([blob], `medicao_${Date.now()}.png`, { type: 'image/png' });
+                
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: 'Medição Outdoor',
+                            text: `Altura: ${getMetros().altura.toFixed(3)}m | Largura: ${getMetros().largura.toFixed(3)}m | Área: ${getMetros().area.toFixed(3)}m²`,
+                            files: [file]
+                        });
+                    } catch(e) {
+                        if (e.name !== 'AbortError') {
+                            alert("Compartilhamento cancelado ou não suportado.");
+                        }
+                    }
+                } else {
+                    alert("Seu navegador não suporta compartilhamento nativo. Use a opção 'Salvar no Celular'.");
+                }
+                sharePopup.classList.add('oculto');
+            }, 'image/png');
+        } catch(err) {
+            alert("Erro ao compartilhar: " + err.message);
+        }
+    }
+    
+    async function salvarLocal() {
+        try {
+            const printCanvas = await criarImagemFinal();
+            printCanvas.toBlob((blob) => {
+                const link = document.createElement('a');
+                link.download = `medicao_${Date.now()}.png`;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+                alert("📸 Imagem salva na pasta de downloads!");
+                sharePopup.classList.add('oculto');
+            }, 'image/png');
+        } catch(err) {
+            alert("Erro ao salvar: " + err.message);
+        }
     }
     
     function fecharPopup() {
-        popupConfirm.classList.add('oculto');
+        sharePopup.classList.add('oculto');
     }
     
     function togglePainel() {
@@ -1119,12 +1220,10 @@
     capturePhotoBtn.addEventListener('click', capturarFoto);
     cancelCameraBtn.addEventListener('click', voltarCamera);
     eyeBtn.addEventListener('click', togglePainel);
-    saveMedicaoBtn.addEventListener('click', mostrarPopup);
-    confirmSaveBtn.addEventListener('click', () => {
-        fecharPopup();
-        executarCaptura();
-    });
-    cancelSaveBtn.addEventListener('click', fecharPopup);
+    saveMedicaoBtn.addEventListener('click', mostrarPopupSalvar);
+    shareBtn.addEventListener('click', compartilhar);
+    saveLocalBtn.addEventListener('click', salvarLocal);
+    cancelPopupBtn.addEventListener('click', fecharPopup);
     modoRefBtn.addEventListener('click', () => mudarModo('referencia'));
     modoRetBtn.addEventListener('click', () => mudarModo('retangulo'));
     orientVerticalBtn.addEventListener('click', () => mudarOrientacao('vertical'));
