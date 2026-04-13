@@ -288,19 +288,19 @@
         let painelVisivel = true;
         let orientacaoRef = 'vertical';
         
-        // Retângulo
+        // Retângulo de medição (verde)
         let retangulo = {
             x: 0.3, y: 0.3,
             width: 0.4, height: 0.4
         };
         
-        // Referência
-        let referencia = {
-            p1: { x: 0.5, y: 0.7 },
-            p2: { x: 0.5, y: 0.5 },
-            tamanhoReal: 1.0
+        // Retângulo de referência (vermelho)
+        let referenciaRet = {
+            x: 0.4, y: 0.5,
+            width: 0.2, height: 0.2
         };
         
+        let referenciaTamanhoReal = 1.0;
         let pixelsPorMetro = null;
         let arrastando = false;
         let itemArrastando = null;
@@ -359,19 +359,27 @@
             };
         }
         
-        function distanciaPixels(p1, p2) {
-            const a = normToPixel(p1);
-            const b = normToPixel(p2);
-            return Math.hypot(a.x - b.x, a.y - b.y);
-        }
-        
-        function atualizarEscala() {
-            const dist = distanciaPixels(referencia.p1, referencia.p2);
-            if (dist > 0 && referencia.tamanhoReal > 0) {
-                pixelsPorMetro = dist / referencia.tamanhoReal;
+        // Obter tamanho do retângulo de referência em pixels
+        function getReferenciaPixels() {
+            const alturaPx = referenciaRet.height * videoRect.h;
+            const larguraPx = referenciaRet.width * videoRect.w;
+            
+            if (orientacaoRef === 'vertical') {
+                return alturaPx;
+            } else {
+                return larguraPx;
             }
         }
         
+        // Atualizar escala baseado no retângulo de referência
+        function atualizarEscala() {
+            const tamanhoPx = getReferenciaPixels();
+            if (tamanhoPx > 0 && referenciaTamanhoReal > 0) {
+                pixelsPorMetro = tamanhoPx / referenciaTamanhoReal;
+            }
+        }
+        
+        // Obter dimensões em metros
         function getMetros() {
             if (!pixelsPorMetro) return { altura: null, largura: null, area: null };
             const altPx = retangulo.height * videoRect.h;
@@ -381,21 +389,25 @@
             return { altura: altM, largura: largM, area: altM * largM };
         }
         
+        // Aplicar restrições de orientação para o retângulo de referência
         function aplicarRestricaoReferencia() {
             if (orientacaoRef === 'vertical') {
-                const xMedio = (referencia.p1.x + referencia.p2.x) / 2;
-                referencia.p1.x = xMedio;
-                referencia.p2.x = xMedio;
+                // Mantém largura fixa e centralizada, só permite ajustar altura
+                const centroX = referenciaRet.x + referenciaRet.width / 2;
+                referenciaRet.width = 0.04; // Largura fina para parecer uma linha
+                referenciaRet.x = centroX - referenciaRet.width / 2;
+                referenciaRet.x = Math.min(0.96, Math.max(0.04, referenciaRet.x));
+                referenciaRet.y = Math.min(0.96, Math.max(0.02, referenciaRet.y));
+                referenciaRet.height = Math.min(0.96 - referenciaRet.y, Math.max(0.05, referenciaRet.height));
             } else {
-                const yMedio = (referencia.p1.y + referencia.p2.y) / 2;
-                referencia.p1.y = yMedio;
-                referencia.p2.y = yMedio;
+                // Mantém altura fixa e centralizada, só permite ajustar largura
+                const centroY = referenciaRet.y + referenciaRet.height / 2;
+                referenciaRet.height = 0.04; // Altura fina para parecer uma linha
+                referenciaRet.y = centroY - referenciaRet.height / 2;
+                referenciaRet.y = Math.min(0.96, Math.max(0.04, referenciaRet.y));
+                referenciaRet.x = Math.min(0.96, Math.max(0.02, referenciaRet.x));
+                referenciaRet.width = Math.min(0.96 - referenciaRet.x, Math.max(0.05, referenciaRet.width));
             }
-            
-            referencia.p1.x = Math.min(0.98, Math.max(0.02, referencia.p1.x));
-            referencia.p1.y = Math.min(0.98, Math.max(0.02, referencia.p1.y));
-            referencia.p2.x = Math.min(0.98, Math.max(0.02, referencia.p2.x));
-            referencia.p2.y = Math.min(0.98, Math.max(0.02, referencia.p2.y));
         }
         
         function mudarOrientacao(orient) {
@@ -403,9 +415,17 @@
             if (orient === 'vertical') {
                 orientVerticalBtn.classList.add('ativo');
                 orientHorizontalBtn.classList.remove('ativo');
+                // Ajustar para modo vertical
+                const centroX = referenciaRet.x + referenciaRet.width / 2;
+                referenciaRet.width = 0.04;
+                referenciaRet.x = centroX - referenciaRet.width / 2;
             } else {
                 orientVerticalBtn.classList.remove('ativo');
                 orientHorizontalBtn.classList.add('ativo');
+                // Ajustar para modo horizontal
+                const centroY = referenciaRet.y + referenciaRet.height / 2;
+                referenciaRet.height = 0.04;
+                referenciaRet.y = centroY - referenciaRet.height / 2;
             }
             aplicarRestricaoReferencia();
             desenhar();
@@ -417,60 +437,65 @@
             
             if (videoRect.w === 0) calcularVideoRect();
             
-            // Desenhar REFERÊNCIA
-            const refP1 = normToPixel(referencia.p1);
-            const refP2 = normToPixel(referencia.p2);
+            // Desenhar RETÂNGULO DE REFERÊNCIA (vermelho)
+            const refPx = {
+                x: videoRect.x + referenciaRet.x * videoRect.w,
+                y: videoRect.y + referenciaRet.y * videoRect.h,
+                w: referenciaRet.width * videoRect.w,
+                h: referenciaRet.height * videoRect.h
+            };
             
-            ctx.beginPath();
-            ctx.moveTo(refP1.x, refP1.y);
-            ctx.lineTo(refP2.x, refP2.y);
             ctx.strokeStyle = '#ff3366';
             ctx.lineWidth = 4;
             ctx.setLineDash([]);
-            ctx.stroke();
+            ctx.strokeRect(refPx.x, refPx.y, refPx.w, refPx.h);
             
-            // Bolinhas para redimensionar a referência (fora das pontas)
-            const distX = refP2.x - refP1.x;
-            const distY = refP2.y - refP1.y;
-            const leng = Math.hypot(distX, distY);
-            const dirX = distX / leng;
-            const dirY = distY / leng;
+            ctx.fillStyle = 'rgba(255,51,102,0.15)';
+            ctx.fillRect(refPx.x, refPx.y, refPx.w, refPx.h);
             
-            // Bolinha na ponta 1 (estendida)
-            const btn1X = refP1.x - dirX * 35;
-            const btn1Y = refP1.y - dirY * 35;
-            // Bolinha na ponta 2 (estendida)
-            const btn2X = refP2.x + dirX * 35;
-            const btn2Y = refP2.y + dirY * 35;
-            
-            // Desenhar bolinhas de redimensionamento (apenas no modo referência)
+            // Alças do retângulo de referência (apenas no modo referência)
             if (modoAtual === 'referencia') {
-                ctx.beginPath();
-                ctx.arc(btn1X, btn1Y, 14, 0, 2*Math.PI);
-                ctx.fillStyle = '#ff8888';
-                ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.font = "bold 12px sans-serif";
-                ctx.fillText("+", btn1X-4, btn1Y+5);
+                const tamanhoAlca = 18;
+                const cantos = [
+                    { x: refPx.x, y: refPx.y },
+                    { x: refPx.x + refPx.w, y: refPx.y },
+                    { x: refPx.x, y: refPx.y + refPx.h },
+                    { x: refPx.x + refPx.w, y: refPx.y + refPx.h }
+                ];
                 
+                cantos.forEach(canto => {
+                    ctx.fillStyle = '#ff6666';
+                    ctx.beginPath();
+                    ctx.arc(canto.x, canto.y, tamanhoAlca/2, 0, 2*Math.PI);
+                    ctx.fill();
+                    ctx.fillStyle = 'white';
+                    ctx.beginPath();
+                    ctx.arc(canto.x, canto.y, tamanhoAlca/3, 0, 2*Math.PI);
+                    ctx.fill();
+                });
+                
+                // Centro para mover
+                const centroX = refPx.x + refPx.w/2;
+                const centroY = refPx.y + refPx.h/2;
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
                 ctx.beginPath();
-                ctx.arc(btn2X, btn2Y, 14, 0, 2*Math.PI);
-                ctx.fillStyle = '#ff8888';
+                ctx.arc(centroX, centroY, 14, 0, 2*Math.PI);
                 ctx.fill();
-                ctx.fillStyle = 'white';
-                ctx.fillText("+", btn2X-4, btn2Y+5);
+                ctx.fillStyle = '#ff6666';
+                ctx.beginPath();
+                ctx.arc(centroX, centroY, 7, 0, 2*Math.PI);
+                ctx.fill();
             }
             
             // Texto do tamanho da referência
-            const mx = (refP1.x + refP2.x)/2;
-            const my = (refP1.y + refP2.y)/2;
+            const tamanhoPx = getReferenciaPixels();
             ctx.font = "bold 12px sans-serif";
             ctx.fillStyle = '#ff99aa';
             ctx.shadowBlur = 2;
-            ctx.fillText(`${referencia.tamanhoReal.toFixed(2)}m`, mx-20, my-10);
+            ctx.fillText(`${referenciaTamanhoReal.toFixed(2)}m`, refPx.x + refPx.w/2 - 20, refPx.y - 8);
             ctx.shadowBlur = 0;
             
-            // Desenhar RETÂNGULO
+            // Desenhar RETÂNGULO DE MEDIÇÃO (verde)
             const retPx = {
                 x: videoRect.x + retangulo.x * videoRect.w,
                 y: videoRect.y + retangulo.y * videoRect.h,
@@ -486,7 +511,7 @@
             ctx.fillStyle = modoAtual === 'retangulo' ? 'rgba(0,255,200,0.15)' : 'rgba(136,170,255,0.1)';
             ctx.fillRect(retPx.x, retPx.y, retPx.w, retPx.h);
             
-            // Alças do retângulo (apenas no modo retângulo)
+            // Alças do retângulo de medição (apenas no modo retângulo)
             if (modoAtual === 'retangulo') {
                 const tamanhoAlca = 18;
                 const cantos = [
@@ -533,46 +558,29 @@
         }
         
         function verificarToque(px, py) {
-            const refP1 = normToPixel(referencia.p1);
-            const refP2 = normToPixel(referencia.p2);
+            // Verificar retângulo de referência
+            const refPx = {
+                x: videoRect.x + referenciaRet.x * videoRect.w,
+                y: videoRect.y + referenciaRet.y * videoRect.h,
+                w: referenciaRet.width * videoRect.w,
+                h: referenciaRet.height * videoRect.h
+            };
             
-            const distX = refP2.x - refP1.x;
-            const distY = refP2.y - refP1.y;
-            const leng = Math.hypot(distX, distY);
-            const dirX = distX / leng;
-            const dirY = distY / leng;
+            const tamanhoAlca = 35;
             
-            const btn1X = refP1.x - dirX * 35;
-            const btn1Y = refP1.y - dirY * 35;
-            const btn2X = refP2.x + dirX * 35;
-            const btn2Y = refP2.y + dirY * 35;
-            
-            // Botões de redimensionamento da referência
+            // Cantos da referência
             if (modoAtual === 'referencia') {
-                if (Math.hypot(px - btn1X, py - btn1Y) < 25) return 'refDiminuir';
-                if (Math.hypot(px - btn2X, py - btn2Y) < 25) return 'refAumentar';
+                if (Math.hypot(px - refPx.x, py - refPx.y) < tamanhoAlca) return 'refTL';
+                if (Math.hypot(px - (refPx.x + refPx.w), py - refPx.y) < tamanhoAlca) return 'refTR';
+                if (Math.hypot(px - refPx.x, py - (refPx.y + refPx.h)) < tamanhoAlca) return 'refBL';
+                if (Math.hypot(px - (refPx.x + refPx.w), py - (refPx.y + refPx.h)) < tamanhoAlca) return 'refBR';
+                
+                const refCentroX = refPx.x + refPx.w/2;
+                const refCentroY = refPx.y + refPx.h/2;
+                if (Math.hypot(px - refCentroX, py - refCentroY) < 40) return 'refMover';
             }
             
-            // Linha da referência (mover)
-            function distanciaToLine(px, py, p1, p2) {
-                const A = px - p1.x;
-                const B = py - p1.y;
-                const C = p2.x - p1.x;
-                const D = p2.y - p1.y;
-                const dot = A * C + B * D;
-                const len2 = C * C + D * D;
-                if (len2 === 0) return Math.hypot(A, B);
-                let t = dot / len2;
-                t = Math.max(0, Math.min(1, t));
-                const projX = p1.x + t * C;
-                const projY = p1.y + t * D;
-                return Math.hypot(px - projX, py - projY);
-            }
-            
-            const distToLine = distanciaToLine(px, py, refP1, refP2);
-            if (distToLine < 25) return 'refLinha';
-            
-            // Retângulo
+            // Verificar retângulo de medição
             const retPx = {
                 x: videoRect.x + retangulo.x * videoRect.w,
                 y: videoRect.y + retangulo.y * videoRect.h,
@@ -580,7 +588,6 @@
                 h: retangulo.height * videoRect.h
             };
             
-            const tamanhoAlca = 35;
             if (Math.hypot(px - retPx.x, py - retPx.y) < tamanhoAlca) return 'cantoTL';
             if (Math.hypot(px - (retPx.x + retPx.w), py - retPx.y) < tamanhoAlca) return 'cantoTR';
             if (Math.hypot(px - retPx.x, py - (retPx.y + retPx.h)) < tamanhoAlca) return 'cantoBL';
@@ -630,6 +637,7 @@
             const deltaX = (canvasX - ultimoToque.x) / videoRect.w;
             const deltaY = (canvasY - ultimoToque.y) / videoRect.h;
             
+            // Movimentar retângulo de medição
             if (itemArrastando === 'cantoTL') {
                 retangulo.width -= deltaX;
                 retangulo.height -= deltaY;
@@ -649,35 +657,35 @@
             } else if (itemArrastando === 'mover') {
                 retangulo.x += deltaX;
                 retangulo.y += deltaY;
-            } else if (itemArrastando === 'refLinha') {
-                referencia.p1.x += deltaX;
-                referencia.p1.y += deltaY;
-                referencia.p2.x += deltaX;
-                referencia.p2.y += deltaY;
+            }
+            // Movimentar retângulo de referência
+            else if (itemArrastando === 'refTL') {
+                referenciaRet.width -= deltaX;
+                referenciaRet.height -= deltaY;
+                referenciaRet.x += deltaX;
+                referenciaRet.y += deltaY;
                 aplicarRestricaoReferencia();
-            } else if (itemArrastando === 'refAumentar') {
-                // Aumentar o tamanho da linha
-                const dx = referencia.p2.x - referencia.p1.x;
-                const dy = referencia.p2.y - referencia.p1.y;
-                const fator = 1 + (deltaX + deltaY) * 0.5;
-                referencia.p1.x -= dx * (fator - 1) / 2;
-                referencia.p1.y -= dy * (fator - 1) / 2;
-                referencia.p2.x += dx * (fator - 1) / 2;
-                referencia.p2.y += dy * (fator - 1) / 2;
+            } else if (itemArrastando === 'refTR') {
+                referenciaRet.width += deltaX;
+                referenciaRet.height -= deltaY;
+                referenciaRet.y += deltaY;
                 aplicarRestricaoReferencia();
-            } else if (itemArrastando === 'refDiminuir') {
-                const dx = referencia.p2.x - referencia.p1.x;
-                const dy = referencia.p2.y - referencia.p1.y;
-                const fator = 1 - (deltaX + deltaY) * 0.5;
-                if (fator > 0.2) {
-                    referencia.p1.x += dx * (1 - fator) / 2;
-                    referencia.p1.y += dy * (1 - fator) / 2;
-                    referencia.p2.x -= dx * (1 - fator) / 2;
-                    referencia.p2.y -= dy * (1 - fator) / 2;
-                    aplicarRestricaoReferencia();
-                }
+            } else if (itemArrastando === 'refBL') {
+                referenciaRet.width -= deltaX;
+                referenciaRet.height += deltaY;
+                referenciaRet.x += deltaX;
+                aplicarRestricaoReferencia();
+            } else if (itemArrastando === 'refBR') {
+                referenciaRet.width += deltaX;
+                referenciaRet.height += deltaY;
+                aplicarRestricaoReferencia();
+            } else if (itemArrastando === 'refMover') {
+                referenciaRet.x += deltaX;
+                referenciaRet.y += deltaY;
+                aplicarRestricaoReferencia();
             }
             
+            // Restringir retângulo de medição
             retangulo.x = Math.min(0.98, Math.max(0, retangulo.x));
             retangulo.y = Math.min(0.98, Math.max(0, retangulo.y));
             retangulo.width = Math.min(1 - retangulo.x, Math.max(0.02, retangulo.width));
@@ -710,9 +718,9 @@
         }
         
         function aplicarReferencia() {
-            referencia.tamanhoReal = parseFloat(refTamanho.value);
-            if (isNaN(referencia.tamanhoReal) || referencia.tamanhoReal <= 0) {
-                referencia.tamanhoReal = 1.0;
+            referenciaTamanhoReal = parseFloat(refTamanho.value);
+            if (isNaN(referenciaTamanhoReal) || referenciaTamanhoReal <= 0) {
+                referenciaTamanhoReal = 1.0;
                 refTamanho.value = '1.00';
             }
             atualizarEscala();
@@ -741,45 +749,40 @@
             printCanvas.width = canvasW;
             printCanvas.height = canvasH;
             
-            // Desenhar o frame do vídeo no canvas de impressão
+            // Desenhar o frame do vídeo
             printCtx.drawImage(videoFrame, 0, 0, video.videoWidth, video.videoHeight, videoRect.x, videoRect.y, videoRect.w, videoRect.h);
             
-            // Desenhar as linhas e retângulos
-            const refP1 = normToPixel(referencia.p1);
-            const refP2 = normToPixel(referencia.p2);
-            
-            printCtx.beginPath();
-            printCtx.moveTo(refP1.x, refP1.y);
-            printCtx.lineTo(refP2.x, refP2.y);
+            // Desenhar retângulo de referência (vermelho)
+            const refPx = {
+                x: videoRect.x + referenciaRet.x * videoRect.w,
+                y: videoRect.y + referenciaRet.y * videoRect.h,
+                w: referenciaRet.width * videoRect.w,
+                h: referenciaRet.height * videoRect.h
+            };
             printCtx.strokeStyle = '#ff3366';
             printCtx.lineWidth = 4;
-            printCtx.stroke();
+            printCtx.strokeRect(refPx.x, refPx.y, refPx.w, refPx.h);
             
+            // Desenhar retângulo de medição (verde)
             const retPx = {
                 x: videoRect.x + retangulo.x * videoRect.w,
                 y: videoRect.y + retangulo.y * videoRect.h,
                 w: retangulo.width * videoRect.w,
                 h: retangulo.height * videoRect.h
             };
-            
             printCtx.strokeStyle = '#00ffcc';
             printCtx.lineWidth = 4;
             printCtx.strokeRect(retPx.x, retPx.y, retPx.w, retPx.h);
             
-            // Adicionar informações da medição
-            printCtx.font = "bold 24px sans-serif";
+            // Adicionar informações no rodapé
+            const dataHora = new Date().toLocaleString();
+            const textoInfo = `${dim.largura.toFixed(3)}m x ${dim.altura.toFixed(3)}m = ${dim.area.toFixed(3)}m²  |  ${dataHora}`;
+            
+            printCtx.font = "14px sans-serif";
             printCtx.fillStyle = '#ffffff';
-            printCtx.shadowBlur = 4;
+            printCtx.shadowBlur = 3;
             printCtx.shadowColor = 'black';
-            printCtx.fillText(`📐 ${dim.altura.toFixed(3)} m`, 20, 60);
-            printCtx.fillText(`📏 ${dim.largura.toFixed(3)} m`, 20, 100);
-            printCtx.font = "bold 32px sans-serif";
-            printCtx.fillStyle = '#ffaa44';
-            printCtx.fillText(`📐 ÁREA: ${dim.area.toFixed(3)} m²`, 20, 160);
-            printCtx.font = "16px sans-serif";
-            printCtx.fillStyle = '#cccccc';
-            printCtx.fillText(`Referência: ${referencia.tamanhoReal.toFixed(2)}m (${orientacaoRef})`, 20, 210);
-            printCtx.fillText(new Date().toLocaleString(), 20, 250);
+            printCtx.fillText(textoInfo, 20, printCanvas.height - 25);
             printCtx.shadowBlur = 0;
             
             // Salvar a imagem
@@ -794,7 +797,6 @@
                                 text: `Altura: ${dim.altura.toFixed(3)}m | Largura: ${dim.largura.toFixed(3)}m | Área: ${dim.area.toFixed(3)}m²`,
                                 files: [file]
                             });
-                            alert("📸 Imagem gerada e compartilhada!");
                         } catch(e) {
                             downloadImage(printCanvas);
                         }
@@ -812,16 +814,24 @@
             link.download = `medicao_${Date.now()}.png`;
             link.href = canvas.toDataURL();
             link.click();
-            alert("📸 Imagem salva na pasta de downloads!");
+            alert("📸 Imagem salva!");
         }
         
         function resetCompleto() {
             retangulo = { x: 0.3, y: 0.3, width: 0.4, height: 0.4 };
-            referencia = {
-                p1: { x: 0.5, y: 0.7 },
-                p2: { x: 0.5, y: 0.5 },
-                tamanhoReal: parseFloat(refTamanho.value)
+            referenciaRet = {
+                x: 0.4, y: 0.5,
+                width: 0.2, height: 0.2
             };
+            if (orientacaoRef === 'vertical') {
+                const centroX = referenciaRet.x + referenciaRet.width / 2;
+                referenciaRet.width = 0.04;
+                referenciaRet.x = centroX - referenciaRet.width / 2;
+            } else {
+                const centroY = referenciaRet.y + referenciaRet.height / 2;
+                referenciaRet.height = 0.04;
+                referenciaRet.y = centroY - referenciaRet.height / 2;
+            }
             aplicarRestricaoReferencia();
             pixelsPorMetro = null;
             desenhar();
