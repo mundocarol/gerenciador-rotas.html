@@ -28,7 +28,7 @@
             height: 100%;
         }
 
-        /* Tela de câmera para capturar */
+        /* Tela de captura de foto */
         .camera-screen {
             position: absolute;
             top: 0;
@@ -37,6 +37,8 @@
             height: 100%;
             background: #000;
             z-index: 50;
+            display: flex;
+            flex-direction: column;
         }
 
         #video {
@@ -46,6 +48,46 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            z-index: 1;
+        }
+
+        .camera-buttons {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            z-index: 60;
+            padding: 0 20px;
+        }
+
+        .camera-btn {
+            flex: 1;
+            max-width: 200px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.5);
+            padding: 15px 25px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            transition: 0.2s;
+        }
+
+        .camera-btn:active {
+            transform: scale(0.97);
+        }
+
+        .camera-btn .emoji {
+            font-size: 28px;
         }
 
         /* Tela de medição */
@@ -79,52 +121,6 @@
             touch-action: none;
         }
 
-        /* Botões da câmera */
-        .camera-buttons {
-            position: absolute;
-            bottom: 30px;
-            left: 0;
-            right: 0;
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-            z-index: 60;
-        }
-
-        .capture-camera-btn {
-            width: 80px;
-            height: 80px;
-            background: rgba(255,255,255,0.9);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border: 4px solid #fff;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            font-size: 40px;
-            transition: 0.2s;
-        }
-
-        .gallery-btn {
-            width: 80px;
-            height: 80px;
-            background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(10px);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            border: 2px solid rgba(255,255,255,0.5);
-            font-size: 36px;
-            transition: 0.2s;
-        }
-
-        .capture-camera-btn:active, .gallery-btn:active {
-            transform: scale(0.95);
-        }
-
         /* Botão olho */
         .eye-btn {
             position: absolute;
@@ -149,7 +145,7 @@
             transform: scale(0.95);
         }
 
-        /* Botão salvar (disquete) */
+        /* Botão salvar (disquete) - aparece no passo 3 */
         .save-medicao-btn {
             position: absolute;
             bottom: 20px;
@@ -168,10 +164,33 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
             font-size: 28px;
             transition: 0.2s;
+            display: none;
         }
 
         .save-medicao-btn:active {
             transform: scale(0.95);
+        }
+
+        /* Botão salvar referência (aparece no passo 2 após aplicar) */
+        .save-ref-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: #4caf50;
+            border: none;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 50px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 30;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: none;
+        }
+
+        .save-ref-btn:active {
+            transform: scale(0.97);
         }
 
         /* Painel de controle */
@@ -192,36 +211,6 @@
         .painel.oculto {
             opacity: 0;
             visibility: hidden;
-        }
-
-        /* Indicador de passo */
-        .step-indicator {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 16px;
-            padding: 8px;
-            background: rgba(0,0,0,0.5);
-            border-radius: 40px;
-        }
-
-        .step {
-            flex: 1;
-            text-align: center;
-            font-size: 12px;
-            padding: 8px;
-            border-radius: 30px;
-            background: #333;
-            color: #888;
-        }
-
-        .step.ativo {
-            background: #2196f3;
-            color: white;
-        }
-
-        .step.concluido {
-            background: #4caf50;
-            color: white;
         }
 
         .resultados {
@@ -330,27 +319,6 @@
             margin: 0;
         }
 
-        button {
-            background: #2196f3;
-            border: none;
-            color: white;
-            padding: 12px;
-            border-radius: 30px;
-            font-weight: bold;
-            font-size: 14px;
-            cursor: pointer;
-            width: 100%;
-            margin-top: 6px;
-        }
-
-        button:active {
-            transform: scale(0.97);
-        }
-
-        .btn-avancar {
-            background: #4caf50;
-        }
-
         /* Popup de compartilhamento */
         .popup-overlay {
             position: fixed;
@@ -395,18 +363,26 @@
         .popup-buttons button {
             margin: 0;
             padding: 14px;
+            border: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
         }
 
         .btn-share {
             background: #25D366;
+            color: white;
         }
 
         .btn-save {
             background: #2196f3;
+            color: white;
         }
 
         .btn-cancel-popup {
             background: #f44336;
+            color: white;
         }
 
         /* Input file escondido */
@@ -414,10 +390,28 @@
             display: none;
         }
 
+        /* Dica flutuante */
+        .floating-hint {
+            position: absolute;
+            bottom: 120px;
+            left: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: #ffaa44;
+            z-index: 35;
+            pointer-events: none;
+        }
+
         @media (max-width: 600px) {
             .area-grande { font-size: 28px; }
-            .capture-camera-btn, .gallery-btn { width: 65px; height: 65px; font-size: 30px; }
-            .step { font-size: 10px; padding: 6px; }
+            .camera-btn { padding: 12px 20px; font-size: 14px; }
+            .camera-btn .emoji { font-size: 22px; }
+            .save-ref-btn { padding: 12px 20px; font-size: 14px; }
         }
     </style>
 </head>
@@ -427,8 +421,14 @@
     <div class="camera-screen" id="cameraScreen">
         <video id="video" autoplay playsinline muted></video>
         <div class="camera-buttons">
-            <div class="gallery-btn" id="galleryBtn">🖼️</div>
-            <div class="capture-camera-btn" id="capturePhotoBtn">📷</div>
+            <div class="camera-btn" id="galleryBtn">
+                <span class="emoji">🖼️</span>
+                <span>Carregar</span>
+            </div>
+            <div class="camera-btn" id="capturePhotoBtn">
+                <span class="emoji">📷</span>
+                <span>Tirar Foto</span>
+            </div>
         </div>
     </div>
 
@@ -439,15 +439,9 @@
 
         <div class="eye-btn" id="eyeBtn">🚫</div>
         <div class="save-medicao-btn" id="saveMedicaoBtn">💾</div>
+        <div class="save-ref-btn" id="saveRefBtn">✅ SALVAR REFERÊNCIA</div>
 
         <div class="painel" id="painel">
-            <!-- Indicador de passos -->
-            <div class="step-indicator">
-                <div class="step" id="step1">📷 1. Capturar</div>
-                <div class="step" id="step2">📏 2. Referência</div>
-                <div class="step" id="step3">📐 3. Medir Área</div>
-            </div>
-
             <div class="resultados">
                 <div class="area-grande" id="areaDisplay">--- m²</div>
                 <div class="medidas-row">
@@ -462,11 +456,11 @@
                 </div>
             </div>
 
-            <!-- PASSO 2: Configurar Referência -->
+            <!-- Configurar Referência -->
             <div id="passoReferencia" class="ref-group">
-                <div class="ref-title">🔧 PASSO 2: CONFIGURAR REFERÊNCIA</div>
+                <div class="ref-title">🔧 CONFIGURAR REFERÊNCIA</div>
                 <div class="orientacao">
-                    <button id="orientVerticalBtn" class="orientacao-btn ativo">📏 Vertical</button>
+                    <button id="orientVerticalBtn" class="orientacao-btn">📏 Vertical</button>
                     <button id="orientHorizontalBtn" class="orientacao-btn">📐 Horizontal</button>
                 </div>
                 <div class="ref-input">
@@ -479,17 +473,6 @@
                 <div class="dica" style="font-size: 11px; color: #ffaa44; margin-top: 8px; text-align: center;">
                     ⚠️ Ajuste o retângulo VERMELHO sobre um objeto de tamanho conhecido
                 </div>
-            </div>
-
-            <!-- PASSO 3: Medir Área (inicialmente oculto) -->
-            <div id="passoMedicao" style="display: none;">
-                <div class="ref-group">
-                    <div class="ref-title">📐 PASSO 3: MEDIR ÁREA DA PLACA</div>
-                    <div class="dica" style="font-size: 12px; color: #00ffcc; text-align: center; margin-bottom: 10px;">
-                        Ajuste o retângulo VERDE sobre a placa/outdoor
-                    </div>
-                </div>
-                <button id="finalizarBtn" class="btn-avancar">💾 Finalizar e Salvar Medição</button>
             </div>
         </div>
     </div>
@@ -523,12 +506,13 @@
     const ctx = canvasMedicao.getContext('2d');
     
     // Estado
-    let passoAtual = 2;
+    let etapa = 'referencia'; // 'referencia' ou 'medicao'
     let painelVisivel = true;
-    let orientacaoRef = 'vertical';
+    let orientacaoRef = null;
     let imagemCapturada = false;
     let fotoBase64 = null;
     let referenciaConfigurada = false;
+    let valoresAplicados = false;
     
     // Dimensões da imagem capturada
     let imgWidth = 0;
@@ -559,17 +543,13 @@
     const larguraDisplay = document.getElementById('larguraDisplay');
     const eyeBtn = document.getElementById('eyeBtn');
     const saveMedicaoBtn = document.getElementById('saveMedicaoBtn');
+    const saveRefBtn = document.getElementById('saveRefBtn');
     const painel = document.getElementById('painel');
     const passoReferencia = document.getElementById('passoReferencia');
-    const passoMedicao = document.getElementById('passoMedicao');
     const orientVerticalBtn = document.getElementById('orientVerticalBtn');
     const orientHorizontalBtn = document.getElementById('orientHorizontalBtn');
     const refTamanho = document.getElementById('refTamanho');
     const aplicarRef = document.getElementById('aplicarRef');
-    const finalizarBtn = document.getElementById('finalizarBtn');
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const step3 = document.getElementById('step3');
     
     const sharePopup = document.getElementById('sharePopup');
     const shareBtn = document.getElementById('shareBtn');
@@ -580,21 +560,7 @@
     let cameraAtiva = false;
     let streamAtual = null;
     
-    function atualizarPassos() {
-        step1.classList.add('concluido');
-        
-        if (referenciaConfigurada) {
-            step2.classList.add('concluido');
-            step2.classList.remove('ativo');
-            step3.classList.add('ativo');
-            step3.classList.remove('concluido');
-        } else {
-            step2.classList.add('ativo');
-            step2.classList.remove('concluido');
-            step3.classList.remove('ativo', 'concluido');
-        }
-    }
-    
+    // Iniciar câmera
     async function iniciarCamera() {
         try {
             if (streamAtual) {
@@ -638,14 +604,41 @@
             imgWidth = fotoCapturada.naturalWidth;
             imgHeight = fotoCapturada.naturalHeight;
             calcularImgRect();
-            resetMedicoes();
+            resetarEstado();
             cameraScreen.style.display = 'none';
             medicaoScreen.style.display = 'block';
             imagemCapturada = true;
             pararCamera();
-            atualizarPassos();
+            
+            // Configurar para etapa de referência
+            etapa = 'referencia';
+            referenciaConfigurada = false;
+            valoresAplicados = false;
+            orientacaoRef = null;
+            referenciaTamanhoReal = null;
+            pixelsPorMetro = null;
+            
+            // Resetar UI da referência
+            orientVerticalBtn.classList.remove('ativo');
+            orientHorizontalBtn.classList.remove('ativo');
+            refTamanho.value = '';
+            
+            // Mostrar painel e botões corretos
+            painel.classList.remove('oculto');
+            eyeBtn.innerHTML = '🚫';
+            painelVisivel = true;
+            saveRefBtn.style.display = 'none';
+            saveMedicaoBtn.style.display = 'none';
+            
+            // Garantir que o retângulo de referência está visível
             desenhar();
         };
+    }
+    
+    function resetarEstado() {
+        retangulo = { x: 0.3, y: 0.3, width: 0.4, height: 0.4 };
+        referenciaRet = { x: 0.4, y: 0.5, width: 0.2, height: 0.2 };
+        aplicarRestricaoReferencia();
     }
     
     function capturarFoto() {
@@ -699,13 +692,6 @@
         };
     }
     
-    function pixelToNorm(px, py) {
-        return {
-            x: (px - imgRect.x) / imgRect.w,
-            y: (py - imgRect.y) / imgRect.h
-        };
-    }
-    
     function getReferenciaPixels() {
         if (orientacaoRef === 'vertical') {
             return referenciaRet.height * imgRect.h;
@@ -715,7 +701,7 @@
     }
     
     function atualizarEscala() {
-        if (referenciaTamanhoReal && referenciaTamanhoReal > 0) {
+        if (referenciaTamanhoReal && referenciaTamanhoReal > 0 && orientacaoRef) {
             const tamanhoPx = getReferenciaPixels();
             if (tamanhoPx > 0) {
                 pixelsPorMetro = tamanhoPx / referenciaTamanhoReal;
@@ -741,24 +727,13 @@
         referenciaRet.height = Math.min(0.96 - referenciaRet.y, Math.max(0.05, referenciaRet.height));
     }
     
-    function mudarOrientacao(orient) {
-        orientacaoRef = orient;
-        if (orient === 'vertical') {
-            orientVerticalBtn.classList.add('ativo');
-            orientHorizontalBtn.classList.remove('ativo');
-        } else {
-            orientVerticalBtn.classList.remove('ativo');
-            orientHorizontalBtn.classList.add('ativo');
-        }
-        desenhar();
-    }
-    
     function desenhar() {
         if (!ctx || !imagemCapturada) return;
         ctx.clearRect(0, 0, canvasW, canvasH);
         
         if (imgRect.w === 0) calcularImgRect();
         
+        // Desenhar RETÂNGULO DE REFERÊNCIA (vermelho)
         const refPx = {
             x: imgRect.x + referenciaRet.x * imgRect.w,
             y: imgRect.y + referenciaRet.y * imgRect.h,
@@ -780,16 +755,7 @@
         ctx.strokeRect(refPx.x + 2, refPx.y + 2, refPx.w - 4, refPx.h - 4);
         ctx.setLineDash([]);
         
-        if (orientacaoRef === 'vertical') {
-            ctx.font = "bold 10px sans-serif";
-            ctx.fillStyle = '#ff8888';
-            ctx.fillText("📏 Altura", refPx.x + refPx.w/2 + 5, refPx.y + refPx.h/2);
-        } else {
-            ctx.font = "bold 10px sans-serif";
-            ctx.fillStyle = '#ff8888';
-            ctx.fillText("📏 Largura", refPx.x + refPx.w/2 - 30, refPx.y + refPx.h/2 - 5);
-        }
-        
+        // Alças do retângulo de referência (sempre editável até salvar)
         if (!referenciaConfigurada) {
             const tamanhoAlca = 16;
             const cantos = [
@@ -822,7 +788,19 @@
             ctx.fill();
         }
         
-        if (referenciaTamanhoReal) {
+        // Mostrar orientação selecionada
+        if (orientacaoRef === 'vertical') {
+            ctx.font = "bold 10px sans-serif";
+            ctx.fillStyle = '#ff8888';
+            ctx.fillText("📏 Vertical - Altura", refPx.x + refPx.w/2 + 5, refPx.y + refPx.h/2);
+        } else if (orientacaoRef === 'horizontal') {
+            ctx.font = "bold 10px sans-serif";
+            ctx.fillStyle = '#ff8888';
+            ctx.fillText("📐 Horizontal - Largura", refPx.x + refPx.w/2 - 40, refPx.y + refPx.h/2 - 5);
+        }
+        
+        // Mostrar valor da referência se já aplicado
+        if (valoresAplicados && referenciaTamanhoReal) {
             ctx.font = "bold 12px sans-serif";
             ctx.fillStyle = '#ff99aa';
             ctx.shadowBlur = 2;
@@ -830,6 +808,7 @@
             ctx.shadowBlur = 0;
         }
         
+        // Desenhar RETÂNGULO DE MEDIÇÃO (verde) - apenas se referência configurada
         if (referenciaConfigurada) {
             const retPx = {
                 x: imgRect.x + retangulo.x * imgRect.w,
@@ -851,38 +830,38 @@
             ctx.strokeRect(retPx.x + 2, retPx.y + 2, retPx.w - 4, retPx.h - 4);
             ctx.setLineDash([]);
             
-            if (referenciaConfigurada) {
-                const tamanhoAlca = 16;
-                const cantos = [
-                    { x: retPx.x, y: retPx.y },
-                    { x: retPx.x + retPx.w, y: retPx.y },
-                    { x: retPx.x, y: retPx.y + retPx.h },
-                    { x: retPx.x + retPx.w, y: retPx.y + retPx.h }
-                ];
-                
-                cantos.forEach(canto => {
-                    ctx.fillStyle = '#00ffcc';
-                    ctx.beginPath();
-                    ctx.arc(canto.x, canto.y, tamanhoAlca/2, 0, 2*Math.PI);
-                    ctx.fill();
-                    ctx.fillStyle = 'white';
-                    ctx.beginPath();
-                    ctx.arc(canto.x, canto.y, tamanhoAlca/3, 0, 2*Math.PI);
-                    ctx.fill();
-                });
-                
-                const centroX = retPx.x + retPx.w/2;
-                const centroY = retPx.y + retPx.h/2;
-                ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                ctx.beginPath();
-                ctx.arc(centroX, centroY, 12, 0, 2*Math.PI);
-                ctx.fill();
+            // Alças do retângulo de medição
+            const tamanhoAlca = 16;
+            const cantos = [
+                { x: retPx.x, y: retPx.y },
+                { x: retPx.x + retPx.w, y: retPx.y },
+                { x: retPx.x, y: retPx.y + retPx.h },
+                { x: retPx.x + retPx.w, y: retPx.y + retPx.h }
+            ];
+            
+            cantos.forEach(canto => {
                 ctx.fillStyle = '#00ffcc';
                 ctx.beginPath();
-                ctx.arc(centroX, centroY, 6, 0, 2*Math.PI);
+                ctx.arc(canto.x, canto.y, tamanhoAlca/2, 0, 2*Math.PI);
                 ctx.fill();
-            }
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(canto.x, canto.y, tamanhoAlca/3, 0, 2*Math.PI);
+                ctx.fill();
+            });
             
+            const centroX = retPx.x + retPx.w/2;
+            const centroY = retPx.y + retPx.h/2;
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath();
+            ctx.arc(centroX, centroY, 12, 0, 2*Math.PI);
+            ctx.fill();
+            ctx.fillStyle = '#00ffcc';
+            ctx.beginPath();
+            ctx.arc(centroX, centroY, 6, 0, 2*Math.PI);
+            ctx.fill();
+            
+            // Mostrar medidas
             const dimensoes = getMetros();
             if (dimensoes.altura && dimensoes.largura) {
                 ctx.font = "bold 14px sans-serif";
@@ -934,6 +913,7 @@
         
         const tamanhoAlca = 35;
         
+        // Referência editável apenas antes de configurar
         if (!referenciaConfigurada) {
             if (Math.hypot(px - refPx.x, py - refPx.y) < tamanhoAlca) return 'refTL';
             if (Math.hypot(px - (refPx.x + refPx.w), py - refPx.y) < tamanhoAlca) return 'refTR';
@@ -945,6 +925,7 @@
             if (Math.hypot(px - refCentroX, py - refCentroY) < 40) return 'refMover';
         }
         
+        // Retângulo de medição editável apenas após referência configurada
         if (referenciaConfigurada) {
             const retPx = {
                 x: imgRect.x + retangulo.x * imgRect.w,
@@ -1065,39 +1046,60 @@
     
     function aplicarReferencia() {
         const valor = parseFloat(refTamanho.value);
+        const orient = orientacaoRef;
+        
+        if (!orient) {
+            alert("⚠️ Selecione VERTICAL ou HORIZONTAL para a referência!");
+            return;
+        }
+        
         if (isNaN(valor) || valor <= 0) {
             alert("⚠️ Digite um valor válido maior que zero!\n\nExemplo: 1.00 para 1 metro");
             return;
         }
         
         referenciaTamanhoReal = valor;
-        referenciaConfigurada = true;
+        valoresAplicados = true;
         atualizarEscala();
         
-        passoReferencia.style.display = 'none';
-        passoMedicao.style.display = 'block';
-        atualizarPassos();
+        // Esconder o painel (efeito do olho)
+        painel.classList.add('oculto');
+        painelVisivel = false;
+        eyeBtn.innerHTML = '👁️';
+        
+        // Mostrar botão de salvar referência
+        saveRefBtn.style.display = 'block';
+        
         desenhar();
         
-        alert(`✅ Referência configurada: ${valor.toFixed(2)} metros\n\nAgora ajuste o retângulo VERDE sobre a placa/outdoor.`);
+        alert(`✅ Valores aplicados!\n\nOrientacão: ${orient === 'vertical' ? 'Vertical' : 'Horizontal'}\nTamanho: ${valor.toFixed(2)} metros\n\nAjuste o retângulo VERMELHO e clique em "SALVAR REFERÊNCIA"`);
     }
     
-    function resetMedicoes() {
-        retangulo = { x: 0.3, y: 0.3, width: 0.4, height: 0.4 };
-        referenciaRet = {
-            x: 0.4, y: 0.5,
-            width: 0.2, height: 0.2
-        };
-        referenciaTamanhoReal = null;
-        referenciaConfigurada = false;
-        pixelsPorMetro = null;
+    function salvarReferencia() {
+        if (!valoresAplicados) {
+            alert("⚠️ Primeiro clique em APLICAR com os valores!");
+            return;
+        }
         
-        passoReferencia.style.display = 'block';
-        passoMedicao.style.display = 'none';
-        refTamanho.value = '';
+        referenciaConfigurada = true;
         
-        aplicarRestricaoReferencia();
-        if (imagemCapturada) desenhar();
+        // Mudar para etapa de medição
+        etapa = 'medicao';
+        
+        // Esconder botão de salvar referência
+        saveRefBtn.style.display = 'none';
+        
+        // Mostrar botão de salvar medição (disquete)
+        saveMedicaoBtn.style.display = 'block';
+        
+        // Garantir que o painel continua oculto
+        painel.classList.add('oculto');
+        painelVisivel = false;
+        eyeBtn.innerHTML = '👁️';
+        
+        desenhar();
+        
+        alert("✅ Referência salva! Agora ajuste o retângulo VERDE sobre a placa/outdoor e clique no disquete 💾 para salvar.");
     }
     
     async function criarImagemFinal() {
@@ -1226,10 +1228,10 @@
         painelVisivel = !painelVisivel;
         if (painelVisivel) {
             painel.classList.remove('oculto');
-            eyeBtn.innerHTML = '👁️';
+            eyeBtn.innerHTML = '🚫';
         } else {
             painel.classList.add('oculto');
-            eyeBtn.innerHTML = '🚫';
+            eyeBtn.innerHTML = '👁️';
         }
     }
     
@@ -1242,18 +1244,29 @@
         if (imagemCapturada) desenhar();
     }
     
+    // Event listeners
     capturePhotoBtn.addEventListener('click', capturarFoto);
     galleryBtn.addEventListener('click', abrirGaleria);
     fileInput.addEventListener('change', carregarFotoArquivo);
     eyeBtn.addEventListener('click', togglePainel);
     saveMedicaoBtn.addEventListener('click', finalizarMedicao);
+    saveRefBtn.addEventListener('click', salvarReferencia);
     shareBtn.addEventListener('click', compartilhar);
     saveLocalBtn.addEventListener('click', salvarLocal);
     cancelPopupBtn.addEventListener('click', fecharPopup);
-    orientVerticalBtn.addEventListener('click', () => mudarOrientacao('vertical'));
-    orientHorizontalBtn.addEventListener('click', () => mudarOrientacao('horizontal'));
+    orientVerticalBtn.addEventListener('click', () => {
+        orientacaoRef = 'vertical';
+        orientVerticalBtn.classList.add('ativo');
+        orientHorizontalBtn.classList.remove('ativo');
+        desenhar();
+    });
+    orientHorizontalBtn.addEventListener('click', () => {
+        orientacaoRef = 'horizontal';
+        orientHorizontalBtn.classList.add('ativo');
+        orientVerticalBtn.classList.remove('ativo');
+        desenhar();
+    });
     aplicarRef.addEventListener('click', aplicarReferencia);
-    finalizarBtn.addEventListener('click', finalizarMedicao);
     window.addEventListener('resize', redimensionar);
     
     canvasMedicao.addEventListener('touchstart', handleTouchStart, { passive: false });
