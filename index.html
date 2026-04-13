@@ -162,9 +162,13 @@
             cursor: pointer;
             border: 3px solid #fff;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            font-size: 28px;
             transition: 0.2s;
             display: none;
+        }
+
+        .save-medicao-btn svg {
+            width: 32px;
+            height: 32px;
         }
 
         .save-medicao-btn:active {
@@ -319,8 +323,117 @@
             margin: 0;
         }
 
+        /* Popup informativo inicial */
+        .info-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .info-popup.oculto {
+            display: none;
+        }
+
+        .info-content {
+            background: #1e1e2e;
+            border-radius: 28px;
+            padding: 24px;
+            margin: 20px;
+            max-width: 380px;
+            border: 1px solid rgba(255,255,255,0.2);
+            text-align: center;
+        }
+
+        .info-content h3 {
+            color: #ffaa44;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        .info-content p {
+            color: #ddd;
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .info-example {
+            background: #2a2a3a;
+            border-radius: 16px;
+            padding: 16px;
+            margin: 16px 0;
+            text-align: center;
+        }
+
+        .info-example .exemplo-texto {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 8px;
+        }
+
+        .exemplo-imagem {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+        }
+
+        .exemplo-ruim, .exemplo-bom {
+            text-align: center;
+            flex: 1;
+        }
+
+        .exemplo-ruim .icone {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        .exemplo-bom .icone {
+            font-size: 48px;
+        }
+
+        .exemplo-ruim span, .exemplo-bom span {
+            font-size: 11px;
+            display: block;
+            margin-top: 5px;
+        }
+
+        .exemplo-ruim span {
+            color: #f44336;
+        }
+
+        .exemplo-bom span {
+            color: #4caf50;
+        }
+
+        .info-btn {
+            background: #2196f3;
+            border: none;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .info-btn:active {
+            transform: scale(0.97);
+        }
+
         /* Popup de compartilhamento */
-        .popup-overlay {
+        .share-popup {
             position: fixed;
             top: 0;
             left: 0;
@@ -333,11 +446,11 @@
             justify-content: center;
         }
 
-        .popup-overlay.oculto {
+        .share-popup.oculto {
             display: none;
         }
 
-        .popup-content {
+        .share-content {
             background: #1e1e2e;
             border-radius: 24px;
             padding: 24px;
@@ -348,19 +461,19 @@
             width: calc(100% - 40px);
         }
 
-        .popup-content p {
+        .share-content p {
             margin-bottom: 20px;
             font-size: 18px;
             color: #fff;
         }
 
-        .popup-buttons {
+        .share-buttons {
             display: flex;
             flex-direction: column;
             gap: 12px;
         }
 
-        .popup-buttons button {
+        .share-buttons button {
             margin: 0;
             padding: 14px;
             border: none;
@@ -380,7 +493,7 @@
             color: white;
         }
 
-        .btn-cancel-popup {
+        .btn-cancel {
             background: #f44336;
             color: white;
         }
@@ -390,33 +503,44 @@
             display: none;
         }
 
-        /* Dica flutuante */
-        .floating-hint {
-            position: absolute;
-            bottom: 120px;
-            left: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 12px;
-            text-align: center;
-            font-size: 12px;
-            color: #ffaa44;
-            z-index: 35;
-            pointer-events: none;
-        }
-
         @media (max-width: 600px) {
             .area-grande { font-size: 28px; }
             .camera-btn { padding: 12px 20px; font-size: 14px; }
             .camera-btn .emoji { font-size: 22px; }
             .save-ref-btn { padding: 12px 20px; font-size: 14px; }
+            .exemplo-imagem { flex-direction: column; gap: 15px; }
         }
     </style>
 </head>
 <body>
 <div class="container">
+    <!-- Popup informativo inicial -->
+    <div class="info-popup" id="infoPopup">
+        <div class="info-content">
+            <h3>📏 Dicas para Melhor Medição</h3>
+            <p>Para obter resultados mais precisos, siga estas recomendações:</p>
+            <div class="info-example">
+                <div class="exemplo-imagem">
+                    <div class="exemplo-ruim">
+                        <div class="icone">📐↗️</div>
+                        <span>❌ Evite ângulos laterais</span>
+                    </div>
+                    <div class="exemplo-bom">
+                        <div class="icone">📏⬆️</div>
+                        <span>✅ Tire de frente</span>
+                    </div>
+                </div>
+                <div class="exemplo-texto">
+                    • Posicione-se o mais de <strong>FRENTE</strong> possível para o objeto<br>
+                    • Quanto maior a área, mais <strong>DISTANTE</strong> você deve ficar<br>
+                    • Mantenha o celular <strong>NIVELADO</strong> (sem inclinar para cima/baixo)<br>
+                    • Certifique-se que o objeto está <strong>totalmente visível</strong> na tela
+                </div>
+            </div>
+            <button class="info-btn" id="closeInfoBtn">👍 ENTENDI, VAMOS COMEÇAR</button>
+        </div>
+    </div>
+
     <!-- Tela de captura de foto -->
     <div class="camera-screen" id="cameraScreen">
         <video id="video" autoplay playsinline muted></video>
@@ -438,7 +562,14 @@
         <canvas id="canvasMedicao"></canvas>
 
         <div class="eye-btn" id="eyeBtn">🚫</div>
-        <div class="save-medicao-btn" id="saveMedicaoBtn">💾</div>
+        <div class="save-medicao-btn" id="saveMedicaoBtn">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#333" stroke-width="1.5">
+                <path d="M5 3H19C20.1 3 21 3.9 21 5V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V5C3 3.9 3.9 3 5 3Z" stroke="currentColor" fill="none"/>
+                <path d="M8 3V8H16V3" stroke="currentColor" fill="none"/>
+                <path d="M12 16C13.6569 16 15 14.6569 15 13C15 11.3431 13.6569 10 12 10C10.3431 10 9 11.3431 9 13C9 14.6569 10.3431 16 12 16Z" stroke="currentColor" fill="none"/>
+                <path d="M17 21V15H7V21" stroke="currentColor" fill="none"/>
+            </svg>
+        </div>
         <div class="save-ref-btn" id="saveRefBtn">✅ SALVAR REFERÊNCIA</div>
 
         <div class="painel" id="painel">
@@ -482,19 +613,21 @@
 <input type="file" id="fileInput" accept="image/*">
 
 <!-- Popup de compartilhamento -->
-<div id="sharePopup" class="popup-overlay oculto">
-    <div class="popup-content">
+<div class="share-popup oculto" id="sharePopup">
+    <div class="share-content">
         <p>📸 Salvar Medição</p>
-        <div class="popup-buttons">
+        <div class="share-buttons">
             <button id="shareBtn" class="btn-share">📱 Compartilhar</button>
             <button id="saveLocalBtn" class="btn-save">💾 Salvar no Celular</button>
-            <button id="cancelPopupBtn" class="btn-cancel-popup">✖️ Cancelar</button>
+            <button id="cancelPopupBtn" class="btn-cancel">✖️ Cancelar</button>
         </div>
     </div>
 </div>
 
 <script>
     // Elementos
+    const infoPopup = document.getElementById('infoPopup');
+    const closeInfoBtn = document.getElementById('closeInfoBtn');
     const cameraScreen = document.getElementById('cameraScreen');
     const medicaoScreen = document.getElementById('medicaoScreen');
     const video = document.getElementById('video');
@@ -506,7 +639,7 @@
     const ctx = canvasMedicao.getContext('2d');
     
     // Estado
-    let etapa = 'referencia'; // 'referencia' ou 'medicao'
+    let etapa = 'referencia';
     let painelVisivel = true;
     let orientacaoRef = null;
     let imagemCapturada = false;
@@ -559,6 +692,11 @@
     let canvasW, canvasH;
     let cameraAtiva = false;
     let streamAtual = null;
+    
+    // Fechar popup informativo
+    closeInfoBtn.addEventListener('click', () => {
+        infoPopup.classList.add('oculto');
+    });
     
     // Iniciar câmera
     async function iniciarCamera() {
@@ -630,7 +768,6 @@
             saveRefBtn.style.display = 'none';
             saveMedicaoBtn.style.display = 'none';
             
-            // Garantir que o retângulo de referência está visível
             desenhar();
         };
     }
@@ -755,7 +892,7 @@
         ctx.strokeRect(refPx.x + 2, refPx.y + 2, refPx.w - 4, refPx.h - 4);
         ctx.setLineDash([]);
         
-        // Alças do retângulo de referência (sempre editável até salvar)
+        // Alças do retângulo de referência
         if (!referenciaConfigurada) {
             const tamanhoAlca = 16;
             const cantos = [
@@ -808,7 +945,7 @@
             ctx.shadowBlur = 0;
         }
         
-        // Desenhar RETÂNGULO DE MEDIÇÃO (verde) - apenas se referência configurada
+        // Desenhar RETÂNGULO DE MEDIÇÃO (verde)
         if (referenciaConfigurada) {
             const retPx = {
                 x: imgRect.x + retangulo.x * imgRect.w,
@@ -913,7 +1050,6 @@
         
         const tamanhoAlca = 35;
         
-        // Referência editável apenas antes de configurar
         if (!referenciaConfigurada) {
             if (Math.hypot(px - refPx.x, py - refPx.y) < tamanhoAlca) return 'refTL';
             if (Math.hypot(px - (refPx.x + refPx.w), py - refPx.y) < tamanhoAlca) return 'refTR';
@@ -925,7 +1061,6 @@
             if (Math.hypot(px - refCentroX, py - refCentroY) < 40) return 'refMover';
         }
         
-        // Retângulo de medição editável apenas após referência configurada
         if (referenciaConfigurada) {
             const retPx = {
                 x: imgRect.x + retangulo.x * imgRect.w,
@@ -1062,7 +1197,7 @@
         valoresAplicados = true;
         atualizarEscala();
         
-        // Esconder o painel (efeito do olho)
+        // Esconder o painel
         painel.classList.add('oculto');
         painelVisivel = false;
         eyeBtn.innerHTML = '👁️';
@@ -1072,7 +1207,7 @@
         
         desenhar();
         
-        alert(`✅ Valores aplicados!\n\nOrientacão: ${orient === 'vertical' ? 'Vertical' : 'Horizontal'}\nTamanho: ${valor.toFixed(2)} metros\n\nAjuste o retângulo VERMELHO e clique em "SALVAR REFERÊNCIA"`);
+        alert(`✅ Valores aplicados!\n\nOrientação: ${orient === 'vertical' ? 'Vertical' : 'Horizontal'}\nTamanho: ${valor.toFixed(2)} metros\n\nAjuste o retângulo VERMELHO e clique em "SALVAR REFERÊNCIA"`);
     }
     
     function salvarReferencia() {
@@ -1082,15 +1217,13 @@
         }
         
         referenciaConfigurada = true;
-        
-        // Mudar para etapa de medição
         etapa = 'medicao';
         
         // Esconder botão de salvar referência
         saveRefBtn.style.display = 'none';
         
         // Mostrar botão de salvar medição (disquete)
-        saveMedicaoBtn.style.display = 'block';
+        saveMedicaoBtn.style.display = 'flex';
         
         // Garantir que o painel continua oculto
         painel.classList.add('oculto');
@@ -1225,6 +1358,8 @@
     }
     
     function togglePainel() {
+        if (referenciaConfigurada) return; // Não permite abrir painel na etapa de medição
+        
         painelVisivel = !painelVisivel;
         if (painelVisivel) {
             painel.classList.remove('oculto');
