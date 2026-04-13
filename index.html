@@ -63,6 +63,30 @@
             transform: scale(0.95);
         }
 
+        .capture-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 65px;
+            height: 65px;
+            background: rgba(255,255,255,0.9);
+            backdrop-filter: blur(10px);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+            cursor: pointer;
+            border: 3px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            font-size: 32px;
+            transition: 0.2s;
+        }
+
+        .capture-btn:active {
+            transform: scale(0.95);
+        }
+
         .painel {
             position: absolute;
             bottom: 20px;
@@ -220,13 +244,10 @@
             background: #f44336;
         }
 
-        .btn-salvar {
-            background: #4caf50;
-        }
-
         @media (max-width: 600px) {
             .area-grande { font-size: 28px; }
             .modo-btn { padding: 10px; font-size: 12px; }
+            .capture-btn { width: 55px; height: 55px; font-size: 28px; bottom: 15px; right: 15px; }
         }
     </style>
 </head>
@@ -235,6 +256,7 @@
     <canvas id="canvas"></canvas>
 
     <div class="eye-btn" id="eyeBtn">👁️</div>
+    <div class="capture-btn" id="captureBtn">📸</div>
 
     <div class="painel" id="painel">
         <div class="resultados">
@@ -253,7 +275,7 @@
 
         <div class="modos">
             <button id="modoRefBtn" class="modo-btn ativo">📏 Ajustar Referência</button>
-            <button id="modoRetBtn" class="modo-btn">⬚ Ajustar Retângulo</button>
+            <button id="modoRetBtn" class="modo-btn">📐 Medir Área</button>
         </div>
 
         <div id="refConfig">
@@ -273,7 +295,6 @@
         <div id="retConfig" style="display:none;">
         </div>
 
-        <button id="salvarBtn" class="btn-salvar">📸 Salvar Medição com Foto</button>
         <button id="resetBtn" class="btn-reset">🗑️ Limpar Tudo</button>
     </div>
 
@@ -311,6 +332,7 @@
         const alturaDisplay = document.getElementById('alturaDisplay');
         const larguraDisplay = document.getElementById('larguraDisplay');
         const eyeBtn = document.getElementById('eyeBtn');
+        const captureBtn = document.getElementById('captureBtn');
         const painel = document.getElementById('painel');
         const modoRefBtn = document.getElementById('modoRefBtn');
         const modoRetBtn = document.getElementById('modoRetBtn');
@@ -320,7 +342,6 @@
         const orientHorizontalBtn = document.getElementById('orientHorizontalBtn');
         const refTamanho = document.getElementById('refTamanho');
         const aplicarRef = document.getElementById('aplicarRef');
-        const salvarBtn = document.getElementById('salvarBtn');
         const resetBtn = document.getElementById('resetBtn');
         
         let canvasW, canvasH;
@@ -359,15 +380,12 @@
             };
         }
         
-        // Obter tamanho do retângulo de referência em pixels
+        // Obter tamanho do retângulo de referência em pixels (considerando orientação)
         function getReferenciaPixels() {
-            const alturaPx = referenciaRet.height * videoRect.h;
-            const larguraPx = referenciaRet.width * videoRect.w;
-            
             if (orientacaoRef === 'vertical') {
-                return alturaPx;
+                return referenciaRet.height * videoRect.h;
             } else {
-                return larguraPx;
+                return referenciaRet.width * videoRect.w;
             }
         }
         
@@ -389,25 +407,13 @@
             return { altura: altM, largura: largM, area: altM * largM };
         }
         
-        // Aplicar restrições de orientação para o retângulo de referência
+        // Aplicar restrições visuais para o retângulo de referência
         function aplicarRestricaoReferencia() {
-            if (orientacaoRef === 'vertical') {
-                // Mantém largura fixa e centralizada, só permite ajustar altura
-                const centroX = referenciaRet.x + referenciaRet.width / 2;
-                referenciaRet.width = 0.04; // Largura fina para parecer uma linha
-                referenciaRet.x = centroX - referenciaRet.width / 2;
-                referenciaRet.x = Math.min(0.96, Math.max(0.04, referenciaRet.x));
-                referenciaRet.y = Math.min(0.96, Math.max(0.02, referenciaRet.y));
-                referenciaRet.height = Math.min(0.96 - referenciaRet.y, Math.max(0.05, referenciaRet.height));
-            } else {
-                // Mantém altura fixa e centralizada, só permite ajustar largura
-                const centroY = referenciaRet.y + referenciaRet.height / 2;
-                referenciaRet.height = 0.04; // Altura fina para parecer uma linha
-                referenciaRet.y = centroY - referenciaRet.height / 2;
-                referenciaRet.y = Math.min(0.96, Math.max(0.04, referenciaRet.y));
-                referenciaRet.x = Math.min(0.96, Math.max(0.02, referenciaRet.x));
-                referenciaRet.width = Math.min(0.96 - referenciaRet.x, Math.max(0.05, referenciaRet.width));
-            }
+            // Limitar dentro da tela
+            referenciaRet.x = Math.min(0.96, Math.max(0.02, referenciaRet.x));
+            referenciaRet.y = Math.min(0.96, Math.max(0.02, referenciaRet.y));
+            referenciaRet.width = Math.min(0.96 - referenciaRet.x, Math.max(0.05, referenciaRet.width));
+            referenciaRet.height = Math.min(0.96 - referenciaRet.y, Math.max(0.05, referenciaRet.height));
         }
         
         function mudarOrientacao(orient) {
@@ -415,19 +421,10 @@
             if (orient === 'vertical') {
                 orientVerticalBtn.classList.add('ativo');
                 orientHorizontalBtn.classList.remove('ativo');
-                // Ajustar para modo vertical
-                const centroX = referenciaRet.x + referenciaRet.width / 2;
-                referenciaRet.width = 0.04;
-                referenciaRet.x = centroX - referenciaRet.width / 2;
             } else {
                 orientVerticalBtn.classList.remove('ativo');
                 orientHorizontalBtn.classList.add('ativo');
-                // Ajustar para modo horizontal
-                const centroY = referenciaRet.y + referenciaRet.height / 2;
-                referenciaRet.height = 0.04;
-                referenciaRet.y = centroY - referenciaRet.height / 2;
             }
-            aplicarRestricaoReferencia();
             desenhar();
         }
         
@@ -437,65 +434,94 @@
             
             if (videoRect.w === 0) calcularVideoRect();
             
-            // Desenhar RETÂNGULO DE REFERÊNCIA (vermelho)
-            const refPx = {
-                x: videoRect.x + referenciaRet.x * videoRect.w,
-                y: videoRect.y + referenciaRet.y * videoRect.h,
-                w: referenciaRet.width * videoRect.w,
-                h: referenciaRet.height * videoRect.h
-            };
-            
-            ctx.strokeStyle = '#ff3366';
-            ctx.lineWidth = 4;
-            ctx.setLineDash([]);
-            ctx.strokeRect(refPx.x, refPx.y, refPx.w, refPx.h);
-            
-            ctx.fillStyle = 'rgba(255,51,102,0.15)';
-            ctx.fillRect(refPx.x, refPx.y, refPx.w, refPx.h);
-            
-            // Alças do retângulo de referência (apenas no modo referência)
-            if (modoAtual === 'referencia') {
-                const tamanhoAlca = 18;
-                const cantos = [
-                    { x: refPx.x, y: refPx.y },
-                    { x: refPx.x + refPx.w, y: refPx.y },
-                    { x: refPx.x, y: refPx.y + refPx.h },
-                    { x: refPx.x + refPx.w, y: refPx.y + refPx.h }
-                ];
+            // Desenhar RETÂNGULO DE REFERÊNCIA (vermelho) - apenas se o painel estiver visível
+            if (painelVisivel) {
+                const refPx = {
+                    x: videoRect.x + referenciaRet.x * videoRect.w,
+                    y: videoRect.y + referenciaRet.y * videoRect.h,
+                    w: referenciaRet.width * videoRect.w,
+                    h: referenciaRet.height * videoRect.h
+                };
                 
-                cantos.forEach(canto => {
+                ctx.strokeStyle = '#ff3366';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([]);
+                ctx.strokeRect(refPx.x, refPx.y, refPx.w, refPx.h);
+                
+                ctx.fillStyle = 'rgba(255,51,102,0.15)';
+                ctx.fillRect(refPx.x, refPx.y, refPx.w, refPx.h);
+                
+                // Indicador visual do que está sendo medido na referência
+                if (orientacaoRef === 'vertical') {
+                    // Destacar altura
+                    ctx.strokeStyle = '#ff8888';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(refPx.x + refPx.w/2, refPx.y);
+                    ctx.lineTo(refPx.x + refPx.w/2, refPx.y + refPx.h);
+                    ctx.stroke();
+                    ctx.fillStyle = '#ff8888';
+                    ctx.font = "bold 10px sans-serif";
+                    ctx.fillText("📏 Altura", refPx.x + refPx.w/2 + 5, refPx.y + refPx.h/2);
+                } else {
+                    // Destacar largura
+                    ctx.strokeStyle = '#ff8888';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(refPx.x, refPx.y + refPx.h/2);
+                    ctx.lineTo(refPx.x + refPx.w, refPx.y + refPx.h/2);
+                    ctx.stroke();
+                    ctx.fillStyle = '#ff8888';
+                    ctx.font = "bold 10px sans-serif";
+                    ctx.fillText("📏 Largura", refPx.x + refPx.w/2 - 20, refPx.y + refPx.h/2 - 5);
+                }
+                ctx.setLineDash([]);
+                
+                // Alças do retângulo de referência (apenas no modo referência)
+                if (modoAtual === 'referencia') {
+                    const tamanhoAlca = 18;
+                    const cantos = [
+                        { x: refPx.x, y: refPx.y },
+                        { x: refPx.x + refPx.w, y: refPx.y },
+                        { x: refPx.x, y: refPx.y + refPx.h },
+                        { x: refPx.x + refPx.w, y: refPx.y + refPx.h }
+                    ];
+                    
+                    cantos.forEach(canto => {
+                        ctx.fillStyle = '#ff6666';
+                        ctx.beginPath();
+                        ctx.arc(canto.x, canto.y, tamanhoAlca/2, 0, 2*Math.PI);
+                        ctx.fill();
+                        ctx.fillStyle = 'white';
+                        ctx.beginPath();
+                        ctx.arc(canto.x, canto.y, tamanhoAlca/3, 0, 2*Math.PI);
+                        ctx.fill();
+                    });
+                    
+                    const centroX = refPx.x + refPx.w/2;
+                    const centroY = refPx.y + refPx.h/2;
+                    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                    ctx.beginPath();
+                    ctx.arc(centroX, centroY, 14, 0, 2*Math.PI);
+                    ctx.fill();
                     ctx.fillStyle = '#ff6666';
                     ctx.beginPath();
-                    ctx.arc(canto.x, canto.y, tamanhoAlca/2, 0, 2*Math.PI);
+                    ctx.arc(centroX, centroY, 7, 0, 2*Math.PI);
                     ctx.fill();
-                    ctx.fillStyle = 'white';
-                    ctx.beginPath();
-                    ctx.arc(canto.x, canto.y, tamanhoAlca/3, 0, 2*Math.PI);
-                    ctx.fill();
-                });
+                }
                 
-                // Centro para mover
-                const centroX = refPx.x + refPx.w/2;
-                const centroY = refPx.y + refPx.h/2;
-                ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                ctx.beginPath();
-                ctx.arc(centroX, centroY, 14, 0, 2*Math.PI);
-                ctx.fill();
-                ctx.fillStyle = '#ff6666';
-                ctx.beginPath();
-                ctx.arc(centroX, centroY, 7, 0, 2*Math.PI);
-                ctx.fill();
+                // Texto do tamanho da referência
+                const tamanhoPx = getReferenciaPixels();
+                ctx.font = "bold 12px sans-serif";
+                ctx.fillStyle = '#ff99aa';
+                ctx.shadowBlur = 2;
+                ctx.fillText(`${referenciaTamanhoReal.toFixed(2)}m`, refPx.x + refPx.w/2 - 20, refPx.y - 8);
+                ctx.shadowBlur = 0;
             }
             
-            // Texto do tamanho da referência
-            const tamanhoPx = getReferenciaPixels();
-            ctx.font = "bold 12px sans-serif";
-            ctx.fillStyle = '#ff99aa';
-            ctx.shadowBlur = 2;
-            ctx.fillText(`${referenciaTamanhoReal.toFixed(2)}m`, refPx.x + refPx.w/2 - 20, refPx.y - 8);
-            ctx.shadowBlur = 0;
-            
-            // Desenhar RETÂNGULO DE MEDIÇÃO (verde)
+            // Desenhar RETÂNGULO DE MEDIÇÃO (verde) - sempre visível
             const retPx = {
                 x: videoRect.x + retangulo.x * videoRect.w,
                 y: videoRect.y + retangulo.y * videoRect.h,
@@ -510,6 +536,17 @@
             
             ctx.fillStyle = modoAtual === 'retangulo' ? 'rgba(0,255,200,0.15)' : 'rgba(136,170,255,0.1)';
             ctx.fillRect(retPx.x, retPx.y, retPx.w, retPx.h);
+            
+            // Mostrar medidas dentro do retângulo
+            const dimensoes = getMetros();
+            if (dimensoes.altura && dimensoes.largura) {
+                ctx.font = "bold 14px sans-serif";
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowBlur = 3;
+                ctx.fillText(`${dimensoes.largura.toFixed(2)}m`, retPx.x + retPx.w/2 - 25, retPx.y + retPx.h/2 - 10);
+                ctx.fillText(`${dimensoes.altura.toFixed(2)}m`, retPx.x + retPx.w/2 - 20, retPx.y + retPx.h/2 + 15);
+                ctx.shadowBlur = 0;
+            }
             
             // Alças do retângulo de medição (apenas no modo retângulo)
             if (modoAtual === 'retangulo') {
@@ -545,7 +582,6 @@
             }
             
             atualizarEscala();
-            const dimensoes = getMetros();
             if (dimensoes.altura && dimensoes.largura) {
                 alturaDisplay.innerHTML = dimensoes.altura.toFixed(3) + ' m';
                 larguraDisplay.innerHTML = dimensoes.largura.toFixed(3) + ' m';
@@ -558,26 +594,27 @@
         }
         
         function verificarToque(px, py) {
-            // Verificar retângulo de referência
-            const refPx = {
-                x: videoRect.x + referenciaRet.x * videoRect.w,
-                y: videoRect.y + referenciaRet.y * videoRect.h,
-                w: referenciaRet.width * videoRect.w,
-                h: referenciaRet.height * videoRect.h
-            };
-            
-            const tamanhoAlca = 35;
-            
-            // Cantos da referência
-            if (modoAtual === 'referencia') {
-                if (Math.hypot(px - refPx.x, py - refPx.y) < tamanhoAlca) return 'refTL';
-                if (Math.hypot(px - (refPx.x + refPx.w), py - refPx.y) < tamanhoAlca) return 'refTR';
-                if (Math.hypot(px - refPx.x, py - (refPx.y + refPx.h)) < tamanhoAlca) return 'refBL';
-                if (Math.hypot(px - (refPx.x + refPx.w), py - (refPx.y + refPx.h)) < tamanhoAlca) return 'refBR';
+            // Verificar retângulo de referência (apenas se painel visível)
+            if (painelVisivel) {
+                const refPx = {
+                    x: videoRect.x + referenciaRet.x * videoRect.w,
+                    y: videoRect.y + referenciaRet.y * videoRect.h,
+                    w: referenciaRet.width * videoRect.w,
+                    h: referenciaRet.height * videoRect.h
+                };
                 
-                const refCentroX = refPx.x + refPx.w/2;
-                const refCentroY = refPx.y + refPx.h/2;
-                if (Math.hypot(px - refCentroX, py - refCentroY) < 40) return 'refMover';
+                const tamanhoAlca = 35;
+                
+                if (modoAtual === 'referencia') {
+                    if (Math.hypot(px - refPx.x, py - refPx.y) < tamanhoAlca) return 'refTL';
+                    if (Math.hypot(px - (refPx.x + refPx.w), py - refPx.y) < tamanhoAlca) return 'refTR';
+                    if (Math.hypot(px - refPx.x, py - (refPx.y + refPx.h)) < tamanhoAlca) return 'refBL';
+                    if (Math.hypot(px - (refPx.x + refPx.w), py - (refPx.y + refPx.h)) < tamanhoAlca) return 'refBR';
+                    
+                    const refCentroX = refPx.x + refPx.w/2;
+                    const refCentroY = refPx.y + refPx.h/2;
+                    if (Math.hypot(px - refCentroX, py - refCentroY) < 40) return 'refMover';
+                }
             }
             
             // Verificar retângulo de medição
@@ -588,6 +625,7 @@
                 h: retangulo.height * videoRect.h
             };
             
+            const tamanhoAlca = 35;
             if (Math.hypot(px - retPx.x, py - retPx.y) < tamanhoAlca) return 'cantoTL';
             if (Math.hypot(px - (retPx.x + retPx.w), py - retPx.y) < tamanhoAlca) return 'cantoTR';
             if (Math.hypot(px - retPx.x, py - (retPx.y + retPx.h)) < tamanhoAlca) return 'cantoBL';
@@ -727,7 +765,7 @@
             desenhar();
         }
         
-        async function salvarMedicao() {
+        async function capturarTela() {
             const dim = getMetros();
             if (!dim.altura || !dim.largura) {
                 alert("⚠️ Ajuste a referência e o retângulo primeiro!");
@@ -752,18 +790,7 @@
             // Desenhar o frame do vídeo
             printCtx.drawImage(videoFrame, 0, 0, video.videoWidth, video.videoHeight, videoRect.x, videoRect.y, videoRect.w, videoRect.h);
             
-            // Desenhar retângulo de referência (vermelho)
-            const refPx = {
-                x: videoRect.x + referenciaRet.x * videoRect.w,
-                y: videoRect.y + referenciaRet.y * videoRect.h,
-                w: referenciaRet.width * videoRect.w,
-                h: referenciaRet.height * videoRect.h
-            };
-            printCtx.strokeStyle = '#ff3366';
-            printCtx.lineWidth = 4;
-            printCtx.strokeRect(refPx.x, refPx.y, refPx.w, refPx.h);
-            
-            // Desenhar retângulo de medição (verde)
+            // Desenhar apenas o retângulo de MEDIÇÃO (verde) - SEM o retângulo de referência
             const retPx = {
                 x: videoRect.x + retangulo.x * videoRect.w,
                 y: videoRect.y + retangulo.y * videoRect.h,
@@ -774,16 +801,27 @@
             printCtx.lineWidth = 4;
             printCtx.strokeRect(retPx.x, retPx.y, retPx.w, retPx.h);
             
-            // Adicionar informações no rodapé
-            const dataHora = new Date().toLocaleString();
-            const textoInfo = `${dim.largura.toFixed(3)}m x ${dim.altura.toFixed(3)}m = ${dim.area.toFixed(3)}m²  |  ${dataHora}`;
-            
-            printCtx.font = "14px sans-serif";
+            // Mostrar medidas dentro do retângulo na captura
+            printCtx.font = "bold 16px sans-serif";
             printCtx.fillStyle = '#ffffff';
             printCtx.shadowBlur = 3;
             printCtx.shadowColor = 'black';
-            printCtx.fillText(textoInfo, 20, printCanvas.height - 25);
+            printCtx.fillText(`${dim.largura.toFixed(2)}m`, retPx.x + retPx.w/2 - 30, retPx.y + retPx.h/2 - 10);
+            printCtx.fillText(`${dim.altura.toFixed(2)}m`, retPx.x + retPx.w/2 - 25, retPx.y + retPx.h/2 + 20);
+            
+            // Adicionar informações no rodapé com fundo
+            const dataHora = new Date().toLocaleString();
+            const textoInfo = `📐 ${dim.altura.toFixed(3)}m  |  📏 ${dim.largura.toFixed(3)}m  |  📊 ${dim.area.toFixed(3)}m²  |  ${dataHora}`;
+            
+            // Fundo do rodapé
+            printCtx.fillStyle = 'rgba(0,0,0,0.7)';
+            printCtx.fillRect(0, printCanvas.height - 40, printCanvas.width, 45);
+            
+            // Texto do rodapé
+            printCtx.font = "13px sans-serif";
+            printCtx.fillStyle = '#ffffff';
             printCtx.shadowBlur = 0;
+            printCtx.fillText(textoInfo, 15, printCanvas.height - 15);
             
             // Salvar a imagem
             try {
@@ -823,15 +861,6 @@
                 x: 0.4, y: 0.5,
                 width: 0.2, height: 0.2
             };
-            if (orientacaoRef === 'vertical') {
-                const centroX = referenciaRet.x + referenciaRet.width / 2;
-                referenciaRet.width = 0.04;
-                referenciaRet.x = centroX - referenciaRet.width / 2;
-            } else {
-                const centroY = referenciaRet.y + referenciaRet.height / 2;
-                referenciaRet.height = 0.04;
-                referenciaRet.y = centroY - referenciaRet.height / 2;
-            }
             aplicarRestricaoReferencia();
             pixelsPorMetro = null;
             desenhar();
@@ -846,6 +875,7 @@
                 painel.classList.add('oculto');
                 eyeBtn.innerHTML = '🚫';
             }
+            desenhar();
         }
         
         async function iniciarCamera() {
@@ -889,12 +919,12 @@
         canvas.addEventListener('touchend', handleTouchEnd);
         
         eyeBtn.addEventListener('click', togglePainel);
+        captureBtn.addEventListener('click', capturarTela);
         modoRefBtn.addEventListener('click', () => mudarModo('referencia'));
         modoRetBtn.addEventListener('click', () => mudarModo('retangulo'));
         orientVerticalBtn.addEventListener('click', () => mudarOrientacao('vertical'));
         orientHorizontalBtn.addEventListener('click', () => mudarOrientacao('horizontal'));
         aplicarRef.addEventListener('click', aplicarReferencia);
-        salvarBtn.addEventListener('click', salvarMedicao);
         resetBtn.addEventListener('click', resetCompleto);
         window.addEventListener('resize', redimensionar);
         
