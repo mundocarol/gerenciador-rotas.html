@@ -3529,7 +3529,7 @@ function renderizarTodosPedidos() {
 }
 
 // ============================================================
-// IMPRIMIR CUPOM - COMPLETA
+// IMPRIMIR CUPOM - CORRIGIDO (CAPTURA BERÇOS ATÉ O FIM DA LINHA)
 // ============================================================
 function imprimirCupom(idPedido) {
     const pedido = dados.pedidos.find(p => parseInt(p.id_pedido) === parseInt(idPedido));
@@ -3539,19 +3539,84 @@ function imprimirCupom(idPedido) {
     }
     
     const printArea = document.getElementById('printArea');
-    
     let itensHtml = '';
     let subtotal = 0;
     let maiorPrazoProducao = 0;
     let isProducaoGeral = false;
     
+    // Dicionário para somar todos os berços por gomos
+    const totalBerçosPorGomos = {};
+    
+    // ============================================================
+    // 🔥 FUNÇÃO PARA EXTRAIR E SOMAR BERÇOS - CORRIGIDA
+    // ============================================================
+    function extrairESomarBerços(descricao, quantidadeUnidades, nomeProduto) {
+        if (!descricao) {
+            console.log(`⚠️ [${nomeProduto}] Sem descrição`);
+            return;
+        }
+        if (quantidadeUnidades <= 0) {
+            console.log(`⚠️ [${nomeProduto}] Quantidade inválida: ${quantidadeUnidades}`);
+            return;
+        }
+        
+        console.log(`\n🔍 [${nomeProduto}] Processando berços...`);
+        console.log(`   Descrição: "${descricao}"`);
+        console.log(`   Quantidade: ${quantidadeUnidades} unidades`);
+        
+        // 🔥 CORREÇÃO: Procura por "Berços:" e captura tudo até o final da linha
+        // O [^\n]* captura tudo que não é quebra de linha
+        const regex = /[Bb]erços?\s*:\s*([^\n]*)/;
+        const match = descricao.match(regex);
+        
+        if (!match) {
+            console.log(`   ❌ Nenhum berço encontrado`);
+            return;
+        }
+        
+        console.log(`   ✅ Match encontrado: "${match[0]}"`);
+        
+        // 🔥 CORREÇÃO: Remove espaços e quebras de linha do conteúdo
+        let conteudo = match[1].replace(/\s/g, '');
+        console.log(`   ✅ Conteúdo limpo: "${conteudo}"`);
+        
+        // 🔥 CORREÇÃO: Divide por vírgula e processa cada parte
+        const partes = conteudo.split(',').map(p => p.trim());
+        console.log(`   Partes: [${partes.join(', ')}]`);
+        
+        partes.forEach(part => {
+            // 🔥 CORREÇÃO: Remove qualquer caractere que não seja número ou 'x'
+            const partLimpa = part.replace(/[^0-9x]/gi, '');
+            console.log(`   Processando: "${part}" → limpo: "${partLimpa}"`);
+            
+            const subPartes = partLimpa.split('x').map(Number);
+            if (subPartes.length === 2) {
+                const qtdBerçosPorUnidade = subPartes[0];
+                const gomos = subPartes[1];
+                
+                if (qtdBerçosPorUnidade > 0 && gomos > 0) {
+                    const totalBerços = quantidadeUnidades * qtdBerçosPorUnidade;
+                    
+                    if (!totalBerçosPorGomos[gomos]) {
+                        totalBerçosPorGomos[gomos] = 0;
+                    }
+                    totalBerçosPorGomos[gomos] += totalBerços;
+                    
+                    console.log(`   ✅ ${qtdBerçosPorUnidade}x berço de ${gomos} gomos → +${totalBerços} = ${totalBerçosPorGomos[gomos]} total`);
+                } else {
+                    console.log(`   ⚠️ Valores inválidos: qtd=${qtdBerçosPorUnidade}, gomos=${gomos}`);
+                }
+            } else {
+                console.log(`   ⚠️ Formato inválido: "${part}" → subPartes: [${subPartes.join(', ')}]`);
+            }
+        });
+    }
+    
     let freteNome = 'Retirada na Loja';
     let freteValor = 0;
-    
     if (pedido.frete && pedido.frete.trim() !== '') {
         freteNome = pedido.frete.trim();
     }
-    
     if (pedido.observacoes) {
         const matchFrete = pedido.observacoes.match(/Frete:\s*([^|]+)/);
         if (matchFrete) {
@@ -3565,7 +3630,6 @@ function imprimirCupom(idPedido) {
             freteValor = parseFloat(matchValor[1].replace(',', '.')) || 0;
         }
     }
-    
     if (pedido.frete_valor) {
         freteValor = parseFloat(pedido.frete_valor) || 0;
     }
@@ -3595,70 +3659,194 @@ function imprimirCupom(idPedido) {
         
         console.log('📝 Texto original dos itens:', textoItens);
         
-        if (typeof textoItens === 'string' && textoItens.includes(' | ')) {
-            const partes = textoItens.split(' | ');
-            console.log('📝 Partes encontradas:', partes);
-            
-            partes.forEach(part => {
-                let isProducao = false;
-                let prazoProducao = 0;
-                let nomeLimpo = part;
-                
-                const partLower = part.toLowerCase();
-                if (partLower.includes('produção') || partLower.includes('producao')) {
-                    isProducao = true;
-                    const matchProd = part.match(/Produção\s*(\d*)\s*dias?/i);
-                    if (matchProd) {
-                        prazoProducao = parseInt(matchProd[1]) || 7;
-                    } else {
-                        prazoProducao = 7;
-                    }
-                    nomeLimpo = nomeLimpo.replace(/\(Produção\s*\d*\s*dias?\)/i, '');
-                    nomeLimpo = nomeLimpo.replace(/\(Produção\)/i, '');
+        // ============================================================
+        // 🔥 VERIFICA SE OS ITENS SÃO UM ARRAY (SALVO COMO JSON)
+        // ============================================================
+        let itensArray = [];
+        let isJsonFormat = false;
+        
+        try {
+            if (typeof textoItens === 'string' && textoItens.trim().startsWith('[')) {
+                const parsed = JSON.parse(textoItens);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    itensArray = parsed;
+                    isJsonFormat = true;
+                    console.log('📦 Itens em formato JSON:', JSON.stringify(itensArray, null, 2));
                 }
+            }
+        } catch (e) {
+            console.log('⚠️ Não é JSON, tentando parsing manual');
+        }
+        
+        if (isJsonFormat && itensArray.length > 0) {
+            // ============================================================
+            // 🔥 PROCESSAMENTO DIRETO DOS ITENS DO PEDIDO (JSON)
+            // ============================================================
+            itensArray.forEach((item, index) => {
+                const nome = item.nome || 'Produto';
+                const qtdPacotes = parseInt(item.quantidade) || 1;
+                const preco = parseFloat(item.price) || 0;
+                const isProducao = item.isProducao || false;
+                const prazoProducao = parseInt(item.prazoProducao) || 0;
+                const tamanhoPacote = parseInt(item.pacote_tamanho) || 1;
+                const totalUnidades = qtdPacotes * tamanhoPacote;
+                const descricao = item.descricao || '';
+                const productId = item.productId || null;
                 
-                nomeLimpo = nomeLimpo.replace(/\(Disponível\)/i, '');
-                nomeLimpo = nomeLimpo.replace(/\(\s*\)/g, '');
-                nomeLimpo = nomeLimpo.trim();
+                console.log(`\n📦 Item ${index+1}: ${nome}`);
+                console.log(`   Quantidade: ${qtdPacotes} pacotes`);
+                console.log(`   Total de unidades: ${totalUnidades}`);
+                console.log(`   Descrição: "${descricao}"`);
                 
                 if (prazoProducao > maiorPrazoProducao) {
                     maiorPrazoProducao = prazoProducao;
                 }
-                
                 if (isProducao) {
                     isProducaoGeral = true;
                 }
                 
-                const matchPacote = nomeLimpo.match(/^(.+?)\s*\((\d+)x\s*(\d+)\s*un\)\s*-\s*R\$\s*([\d,.]+)/);
+                // ============================================================
+                // 🔥 EXTRAI E SOMA OS BERÇOS
+                // ============================================================
+                let produtoCompleto = null;
+                let descricaoParaBuscar = descricao;
                 
-                if (matchPacote) {
-                    const nome = matchPacote[1].trim();
-                    const qtdPacotes = parseInt(matchPacote[2]) || 1;
-                    const tamanhoPacote = parseInt(matchPacote[3]) || 1;
-                    const preco = parseFloat(matchPacote[4].replace(',', '.')) || 0;
-                    const totalUnidades = qtdPacotes * tamanhoPacote;
+                // Tenta pelo productId
+                if (productId) {
+                    produtoCompleto = dados.produtos.find(p => parseInt(p.id) === parseInt(productId));
+                    if (produtoCompleto) {
+                        console.log(`✅ Produto encontrado por ID: "${produtoCompleto.nome}"`);
+                        descricaoParaBuscar = produtoCompleto.descricao || descricao;
+                    }
+                }
+                
+                // Tenta pelo nome
+                if (!produtoCompleto) {
+                    const nomeLimpo = nome
+                        .replace(/\(Disponível\)/i, '')
+                        .replace(/\(Produção.*?\)/i, '')
+                        .replace(/\(personalizado\)/i, '')
+                        .trim();
                     
-                    let nomeFinal = nome;
-                    nomeFinal = nomeFinal.replace(/\(Produção\s*\d*\s*dias?\)/i, '');
-                    nomeFinal = nomeFinal.replace(/\(Produção\)/i, '');
-                    nomeFinal = nomeFinal.trim();
-                    if (!nomeFinal) nomeFinal = nome;
+                    console.log(`   Buscando produto por nome: "${nomeLimpo}"`);
                     
-                    itens.push({
-                        nome: nomeFinal,
-                        quantidade: qtdPacotes,
-                        pacote_tamanho: tamanhoPacote,
-                        totalUnidades: totalUnidades,
-                        price: preco,
-                        isProducao: isProducao,
-                        prazoProducao: prazoProducao
-                    });
+                    produtoCompleto = dados.produtos.find(p => 
+                        p.nome && p.nome.toLowerCase() === nomeLimpo.toLowerCase()
+                    );
+                    
+                    if (!produtoCompleto) {
+                        produtoCompleto = dados.produtos.find(p => 
+                            p.nome && p.nome.toLowerCase().includes(nomeLimpo.toLowerCase())
+                        );
+                    }
+                    
+                    if (produtoCompleto) {
+                        console.log(`✅ Produto encontrado por nome: "${produtoCompleto.nome}"`);
+                        descricaoParaBuscar = produtoCompleto.descricao || descricao;
+                    }
+                }
+                
+                if (!produtoCompleto) {
+                    console.log(`⚠️ Produto NÃO encontrado para: "${nome}"`);
+                    console.log(`   Usando descrição do item: "${descricao}"`);
+                }
+                
+                // 🔥 EXTRAI OS BERÇOS
+                if (descricaoParaBuscar) {
+                    extrairESomarBerços(descricaoParaBuscar, qtdPacotes, nome);
                 } else {
-                    const match2 = nomeLimpo.match(/^(.+?)\s*\((\d+)\s*un\)\s*-\s*R\$\s*([\d,.]+)/);
-                    if (match2) {
-                        const nome = match2[1].trim();
-                        const totalUnidades = parseInt(match2[2]) || 1;
-                        const preco = parseFloat(match2[3].replace(',', '.')) || 0;
+                    console.log(`⚠️ Sem descrição para extrair berços`);
+                }
+                
+                // ============================================================
+                // GERA O HTML DO ITEM
+                // ============================================================
+                let nomeFinal = nome;
+                nomeFinal = nomeFinal.replace(/\(Produção\s*\d*\s*dias?\)/i, '');
+                nomeFinal = nomeFinal.replace(/\(Produção\)/i, '');
+                nomeFinal = nomeFinal.replace(/\(Disponível\)/i, '');
+                nomeFinal = nomeFinal.trim();
+                if (!nomeFinal) nomeFinal = nome;
+                
+                const unitPrice = totalUnidades > 0 ? preco / totalUnidades : 0;
+                subtotal += preco;
+                
+                let statusEstoque = '';
+                if (isProducao && prazoProducao > 0) {
+                    statusEstoque = `🔨 ${prazoProducao} dias (Produção)`;
+                } else if (isProducao) {
+                    statusEstoque = '🔨 Produção';
+                } else {
+                    statusEstoque = '✅ Disponível';
+                }
+                
+                const qtdTexto = `${qtdPacotes}x ${tamanhoPacote} un (${totalUnidades} un)`;
+                
+                itensHtml += `
+                    <div style="display:flex;flex-direction:column;padding:2px 0;border-bottom:1px dotted #ccc;width:100%;max-width:100%;">
+                        <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start;">
+                            <div style="flex:1;min-width:0;padding-right:6px;">
+                                <span style="font-size:8.5px;font-weight:bold;color:#000;display:block;word-wrap:break-word;white-space:normal;line-height:1.3;">
+                                    ${index+1}. ${nomeFinal}
+                                </span>
+                                <span style="font-size:7px;color:#000;display:block;font-weight:bold;">${qtdTexto}</span>
+                            </div>
+                            <span style="font-size:8.5px;font-weight:bold;color:#000;flex-shrink:0;white-space:nowrap;">R$ ${preco.toFixed(2)}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;width:100%;font-size:7px;color:#000;margin-top:1px;flex-wrap:wrap;gap:2px 8px;">
+                            ${unitPrice > 0 ? `<span style="color:#000;">💰 Unit: R$ ${unitPrice.toFixed(2)}</span>` : ''}
+                            <span style="color:#000;font-weight:bold;">${statusEstoque}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        } else {
+            // ============================================================
+            // 🔥 PROCESSAMENTO LEGADO (STRING COM ' | ')
+            // ============================================================
+            console.log('📝 Processando formato legado (string com | )');
+            
+            if (typeof textoItens === 'string' && textoItens.includes(' | ')) {
+                const partes = textoItens.split(' | ');
+                console.log('📝 Partes encontradas:', partes);
+                
+                partes.forEach((part, index) => {
+                    let isProducao = false;
+                    let prazoProducao = 0;
+                    let nomeLimpo = part;
+                    
+                    const partLower = part.toLowerCase();
+                    if (partLower.includes('produção') || partLower.includes('producao')) {
+                        isProducao = true;
+                        const matchProd = part.match(/Produção\s*(\d*)\s*dias?/i);
+                        if (matchProd) {
+                            prazoProducao = parseInt(matchProd[1]) || 7;
+                        } else {
+                            prazoProducao = 7;
+                        }
+                        nomeLimpo = nomeLimpo.replace(/\(Produção\s*\d*\s*dias?\)/i, '');
+                        nomeLimpo = nomeLimpo.replace(/\(Produção\)/i, '');
+                    }
+                    
+                    nomeLimpo = nomeLimpo.replace(/\(Disponível\)/i, '');
+                    nomeLimpo = nomeLimpo.replace(/\(\s*\)/g, '');
+                    nomeLimpo = nomeLimpo.trim();
+                    
+                    if (prazoProducao > maiorPrazoProducao) {
+                        maiorPrazoProducao = prazoProducao;
+                    }
+                    if (isProducao) {
+                        isProducaoGeral = true;
+                    }
+                    
+                    const matchPacote = nomeLimpo.match(/^(.+?)\s*\((\d+)x\s*(\d+)\s*un\)\s*-\s*R\$\s*([\d,.]+)/);
+                    
+                    if (matchPacote) {
+                        const nome = matchPacote[1].trim();
+                        const qtdPacotes = parseInt(matchPacote[2]) || 1;
+                        const tamanhoPacote = parseInt(matchPacote[3]) || 1;
+                        const preco = parseFloat(matchPacote[4].replace(',', '.')) || 0;
+                        const totalUnidades = qtdPacotes * tamanhoPacote;
                         
                         let nomeFinal = nome;
                         nomeFinal = nomeFinal.replace(/\(Produção\s*\d*\s*dias?\)/i, '');
@@ -3666,94 +3854,117 @@ function imprimirCupom(idPedido) {
                         nomeFinal = nomeFinal.trim();
                         if (!nomeFinal) nomeFinal = nome;
                         
-                        itens.push({
-                            nome: nomeFinal,
-                            quantidade: 1,
-                            pacote_tamanho: totalUnidades,
-                            totalUnidades: totalUnidades,
-                            price: preco,
-                            isProducao: isProducao,
-                            prazoProducao: prazoProducao
-                        });
+                        // 🔥 EXTRAI E SOMA OS BERÇOS
+                        console.log(`\n🔍 Buscando berços para: "${nome}"`);
+                        const produtoEncontrado = dados.produtos.find(p => 
+                            p.nome && p.nome.toLowerCase() === nome.toLowerCase()
+                        );
+                        
+                        if (produtoEncontrado && produtoEncontrado.descricao) {
+                            console.log(`✅ Produto encontrado: "${produtoEncontrado.nome}"`);
+                            extrairESomarBerços(produtoEncontrado.descricao, qtdPacotes, nome);
+                        } else {
+                            console.log(`⚠️ Produto NÃO encontrado para: "${nome}"`);
+                        }
+                        
+                        const unitPrice = totalUnidades > 0 ? preco / totalUnidades : 0;
+                        subtotal += preco;
+                        
+                        let statusEstoque = '';
+                        if (isProducao && prazoProducao > 0) {
+                            statusEstoque = `🔨 ${prazoProducao} dias (Produção)`;
+                        } else if (isProducao) {
+                            statusEstoque = '🔨 Produção';
+                        } else {
+                            statusEstoque = '✅ Disponível';
+                        }
+                        
+                        const qtdTexto = `${qtdPacotes}x ${tamanhoPacote} un (${totalUnidades} un)`;
+                        
+                        itensHtml += `
+                            <div style="display:flex;flex-direction:column;padding:2px 0;border-bottom:1px dotted #ccc;width:100%;max-width:100%;">
+                                <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start;">
+                                    <div style="flex:1;min-width:0;padding-right:6px;">
+                                        <span style="font-size:8.5px;font-weight:bold;color:#000;display:block;word-wrap:break-word;white-space:normal;line-height:1.3;">
+                                            ${index+1}. ${nomeFinal}
+                                        </span>
+                                        <span style="font-size:7px;color:#000;display:block;font-weight:bold;">${qtdTexto}</span>
+                                    </div>
+                                    <span style="font-size:8.5px;font-weight:bold;color:#000;flex-shrink:0;white-space:nowrap;">R$ ${preco.toFixed(2)}</span>
+                                </div>
+                                <div style="display:flex;justify-content:space-between;width:100%;font-size:7px;color:#000;margin-top:1px;flex-wrap:wrap;gap:2px 8px;">
+                                    ${unitPrice > 0 ? `<span style="color:#000;">💰 Unit: R$ ${unitPrice.toFixed(2)}</span>` : ''}
+                                    <span style="color:#000;font-weight:bold;">${statusEstoque}</span>
+                                </div>
+                            </div>
+                        `;
                     }
-                }
+                });
+            }
+            
+            // Fallback
+            if (itensHtml === '' && textoItens) {
+                const preco = parseFloat(pedido.total) || 0;
+                subtotal = preco;
+                itensHtml = `
+                    <div style="display:flex;flex-direction:column;padding:2px 0;border-bottom:1px dotted #ccc;width:100%;">
+                        <div style="display:flex;justify-content:space-between;width:100%;">
+                            <span style="font-size:8.5px;font-weight:bold;color:#000;">${String(textoItens).substring(0, 40)}</span>
+                            <span style="font-size:8.5px;font-weight:bold;color:#000;">R$ ${preco.toFixed(2)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        // ============================================================
+        // 🔥 LOG FINAL DOS BERÇOS
+        // ============================================================
+        console.log('\n📦 TOTAL DE BERÇOS POR GOMOS:');
+        const gomosOrdenados = Object.keys(totalBerçosPorGomos).map(Number).sort((a, b) => a - b);
+        if (gomosOrdenados.length === 0) {
+            console.log('   Nenhum berço encontrado');
+        } else {
+            gomosOrdenados.forEach(gomos => {
+                console.log(`   Berço ${gomos} gomos: ${totalBerçosPorGomos[gomos]} unidades`);
             });
         }
         
-        if (itens.length === 0 && textoItens) {
-            const matchPreco = textoItens.match(/R\$\s*([\d,.]+)/);
-            const preco = matchPreco ? parseFloat(matchPreco[1].replace(',', '.')) : 0;
-            const isProducao = textoItens.toLowerCase().includes('produção') || textoItens.toLowerCase().includes('producao');
-            const prazoMatch = textoItens.match(/Produção\s*(\d*)\s*dias?/i);
-            const prazo = prazoMatch ? parseInt(prazoMatch[1]) : 7;
-            
-            itens = [{
-                nome: String(textoItens).substring(0, 40),
-                quantidade: 1,
-                pacote_tamanho: 1,
-                totalUnidades: 1,
-                price: preco || parseFloat(pedido.total) || 0,
-                isProducao: isProducao,
-                prazoProducao: isProducao ? prazo : 0
-            }];
-        }
-        
-        if (itens.length === 0) {
-            itens = [{
-                nome: 'Produto',
-                quantidade: 1,
-                pacote_tamanho: 1,
-                totalUnidades: 1,
-                price: parseFloat(pedido.total) || 0,
-                isProducao: false,
-                prazoProducao: 0
-            }];
-        }
-        
-        console.log('📦 Itens processados final:', itens);
-        
-        itens.forEach((item, index) => {
-            const preco = parseFloat(item.price || 0);
-            const qtdPacotes = parseInt(item.quantidade || 1);
-            const tamanhoPacote = parseInt(item.pacote_tamanho || 1);
-            const totalUnidades = qtdPacotes * tamanhoPacote;
-            
-            const unitPrice = totalUnidades > 0 ? preco / totalUnidades : 0;
-            subtotal += preco;
-            
-            const isProducao = item.isProducao || false;
-            const prazoProducao = item.prazoProducao || 0;
-            
-            let statusEstoque = '';
-            if (isProducao && prazoProducao > 0) {
-                statusEstoque = `🔨 ${prazoProducao} dias (Produção)`;
-            } else if (isProducao) {
-                statusEstoque = '🔨 Produção';
-            } else {
-                statusEstoque = '✅ Disponível';
-            }
-            
-            const nome = String(item.nome || 'Produto').trim();
-            const qtdTexto = `${qtdPacotes}x ${tamanhoPacote} un (${totalUnidades} un)`;
+        // ============================================================
+        // 🔥 ADICIONA OS BERÇOS AGREGADOS
+        // ============================================================
+        if (gomosOrdenados.length > 0) {
+            const totalItensExistentes = itensHtml.split('<div style="display:flex;flex-direction:column;padding:2px 0;border-bottom:1px dotted #ccc;width:100%;max-width:100%;">').length - 1;
+            let itemIndex = totalItensExistentes + 1;
             
             itensHtml += `
-                <div style="display:flex;flex-direction:column;padding:2px 0;border-bottom:1px dotted #ccc;width:100%;max-width:100%;">
-                    <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start;">
-                        <div style="flex:1;min-width:0;padding-right:6px;">
-                            <span style="font-size:8.5px;font-weight:bold;color:#000;display:block;word-wrap:break-word;white-space:normal;line-height:1.3;">
-                                ${index+1}. ${nome}
-                            </span>
-                            <span style="font-size:7px;color:#333;display:block;font-weight:bold;">${qtdTexto}</span>
-                        </div>
-                        <span style="font-size:8.5px;font-weight:bold;color:#000;flex-shrink:0;white-space:nowrap;">R$ ${preco.toFixed(2)}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;width:100%;font-size:7px;color:#000;margin-top:1px;flex-wrap:wrap;gap:2px 8px;">
-                        ${unitPrice > 0 ? `<span style="color:#000;">💰 Unit: R$ ${unitPrice.toFixed(2)}</span>` : ''}
-                        <span style="color:${isProducao ? '#f39c12' : '#27ae60'};font-weight:bold;">${statusEstoque}</span>
-                    </div>
-                </div>
+                <div style="border-top:1px dashed #000;margin:3px 0;width:100%;"></div>
             `;
-        });
+            
+            gomosOrdenados.forEach(gomos => {
+                const totalBerços = totalBerçosPorGomos[gomos];
+                const qtdTexto = `${totalBerços} unidades`;
+                
+                itensHtml += `
+                    <div style="display:flex;flex-direction:column;padding:2px 0;border-bottom:1px dotted #ccc;width:100%;max-width:100%;">
+                        <div style="display:flex;justify-content:space-between;width:100%;align-items:flex-start;">
+                            <div style="flex:1;min-width:0;padding-right:6px;">
+                                <span style="font-size:8.5px;font-weight:bold;color:#000;display:block;word-wrap:break-word;white-space:normal;line-height:1.3;">
+                                    ${itemIndex}. BERÇO ${gomos} GOMOS
+                                </span>
+                                <span style="font-size:7px;color:#000;display:block;font-weight:bold;">${qtdTexto}</span>
+                            </div>
+                            <span style="font-size:8.5px;font-weight:bold;color:#000;flex-shrink:0;white-space:nowrap;">R$ 0,00</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;width:100%;font-size:7px;color:#000;margin-top:1px;flex-wrap:wrap;gap:2px 8px;">
+                            <span style="color:#000;">💰 Unit: R$ 0.00</span>
+                            <span style="color:#000;font-weight:bold;">⭐ CONFERIR</span>
+                        </div>
+                    </div>
+                `;
+                itemIndex++;
+            });
+        }
         
     } catch (e) {
         console.error('❌ Erro ao processar itens:', e);
@@ -3776,9 +3987,7 @@ function imprimirCupom(idPedido) {
     if (freteNome && freteNome !== 'Retirada na Loja' && freteNome !== 'Retirada') {
         diasEnvio = 3;
     }
-    
     let prazoTotal = diasEnvio + maiorPrazoProducao;
-    
     if (prazoEntrega > 0) {
         prazoTotal = prazoEntrega;
     }
@@ -3790,6 +3999,36 @@ function imprimirCupom(idPedido) {
     const cliente = (pedido.cliente_nome || 'Não identificado');
     const telefone = pedido.cliente_telefone || '';
     const observacoes = pedido.observacoes || '';
+    
+    let documentoCliente = '';
+    if (pedido.cliente_email) {
+        const clienteEncontrado = dados.clientes.find(c => 
+            c.email && c.email.toLowerCase() === pedido.cliente_email.toLowerCase()
+        );
+        if (clienteEncontrado) {
+            documentoCliente = clienteEncontrado.documento || clienteEncontrado.cpf || '';
+        }
+    }
+    if (!documentoCliente && pedido.cliente_nome) {
+        const clienteEncontrado = dados.clientes.find(c => 
+            c.nome && c.nome.toLowerCase() === pedido.cliente_nome.toLowerCase()
+        );
+        if (clienteEncontrado) {
+            documentoCliente = clienteEncontrado.documento || clienteEncontrado.cpf || '';
+        }
+    }
+    
+    let documentoFormatado = '';
+    if (documentoCliente) {
+        const docLimpo = String(documentoCliente).replace(/\D/g, '');
+        if (docLimpo.length === 11) {
+            documentoFormatado = docLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        } else if (docLimpo.length === 14) {
+            documentoFormatado = docLimpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+        } else if (docLimpo.length > 0) {
+            documentoFormatado = docLimpo;
+        }
+    }
     
     let obsLimpa = observacoes;
     if (obsLimpa) {
@@ -3803,24 +4042,26 @@ function imprimirCupom(idPedido) {
     
     printArea.innerHTML = `
         <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:4px;width:100%;">
-            <h2 style="font-size:12px;margin:0;letter-spacing:0.5px;font-weight:bold;">MC EMBALAGENS BH</h2>
-            <p style="font-size:7px;margin:0.3px 0;">Pç Santuário S Geraldo,46 - BH/MG</p>
-            <p style="font-size:7px;margin:0.3px 0;">CEP:31050-650 | Tel:(31)3487-5905</p>
+            <h2 style="font-size:12px;margin:0;letter-spacing:0.5px;font-weight:bold;color:#000;">MC EMBALAGENS BH</h2>
+            <p style="font-size:7px;margin:0.3px 0;color:#000;">Pç Santuário S Geraldo,46 - BH/MG</p>
+            <p style="font-size:7px;margin:0.3px 0;color:#000;">CEP:31050-650 | Tel:(31)3487-5905</p>
             <div style="border-top:1px dashed #000;margin:2px 0;"></div>
-            <p style="font-size:8px;font-weight:bold;margin:0.3px 0;">CUPOM NÃO FISCAL</p>
+            <p style="font-size:8px;font-weight:bold;margin:0.3px 0;color:#000;">CUPOM NÃO FISCAL</p>
             
-            <div style="display:flex;justify-content:space-between;font-size:8.5px;font-weight:bold;padding:1.5px 0;width:100%;margin-top:2px;border-bottom:1px dotted #000;padding-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;font-size:8.5px;font-weight:bold;padding:1.5px 0;width:100%;margin-top:2px;border-bottom:1px dotted #000;padding-bottom:2px;color:#000;">
                 <span>Pedido #${pedido.id_pedido}</span>
                 <span>${dataFormatada}</span>
             </div>
             
-            <div style="display:flex;justify-content:space-between;font-size:8.5px;font-weight:bold;padding:1.5px 0;width:100%;">
+            <div style="display:flex;justify-content:space-between;font-size:8.5px;font-weight:bold;padding:1.5px 0;width:100%;color:#000;">
                 <span>Cliente: ${cliente}</span>
             </div>
             
-            ${telefone ? `<div style="display:flex;justify-content:flex-start;font-size:7.5px;padding:0.5px 0;width:100%;"><span>Telefone: ${telefone}</span></div>` : ''}
+            ${documentoFormatado ? `<div style="display:flex;justify-content:flex-start;font-size:7.5px;padding:0.5px 0;width:100%;color:#000;"><span>${documentoFormatado}</span></div>` : ''}
             
-            <div style="display:flex;justify-content:space-between;font-size:7.5px;padding:0.5px 0;width:100%;">
+            ${telefone ? `<div style="display:flex;justify-content:flex-start;font-size:7.5px;padding:0.5px 0;width:100%;color:#000;"><span>Telefone: ${telefone}</span></div>` : ''}
+            
+            <div style="display:flex;justify-content:space-between;font-size:7.5px;padding:0.5px 0;width:100%;color:#000;">
                 <span>Status: ${status}</span>
                 <span>Pagamento: ${pagamento}</span>
             </div>
@@ -3829,7 +4070,7 @@ function imprimirCupom(idPedido) {
         </div>
         
         <div style="margin:2px 0;">
-            <div style="font-weight:bold;border-bottom:2px solid #000;padding-bottom:1.5px;margin-bottom:3px;display:flex;justify-content:space-between;font-size:8.5px;width:100%;background:#f5f5f5;padding:2px 4px;">
+            <div style="font-weight:bold;border-bottom:2px solid #000;padding-bottom:1.5px;margin-bottom:3px;display:flex;justify-content:space-between;font-size:8.5px;width:100%;background:#f5f5f5;padding:2px 4px;color:#000;">
                 <span>PRODUTOS</span>
                 <span>VALOR</span>
             </div>
@@ -3837,21 +4078,21 @@ function imprimirCupom(idPedido) {
         </div>
         
         <div style="margin-top:4px;border-top:2px solid #000;padding-top:3px;">
-            <div style="display:flex;justify-content:space-between;padding:1.5px 0;font-size:8px;width:100%;">
+            <div style="display:flex;justify-content:space-between;padding:1.5px 0;font-size:8px;width:100%;color:#000;">
                 <span>Subtotal</span>
                 <span>R$ ${subtotal.toFixed(2)}</span>
             </div>
             
-            <div style="display:flex;justify-content:space-between;padding:1.5px 0;font-size:8px;width:100%;border-bottom:1px dotted #000;padding-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;padding:1.5px 0;font-size:8px;width:100%;border-bottom:1px dotted #000;padding-bottom:2px;color:#000;">
                 <span style="font-weight:bold;">Frete: ${freteNome}</span>
                 <span style="font-weight:bold;">${freteValor === 0 ? 'Grátis' : 'R$ ' + freteValor.toFixed(2)}</span>
             </div>
             
-            <div style="display:flex;justify-content:space-between;padding:1px 0;font-size:7.5px;width:100%;background:#f5f5f5;padding:2px 4px;margin-top:1px;">
+            <div style="display:flex;justify-content:space-between;padding:1px 0;font-size:7.5px;width:100%;background:#f5f5f5;padding:2px 4px;margin-top:1px;color:#000;">
                 <span>Prazo total: ${prazoTotal} dias úteis</span>
             </div>
             
-            <div style="display:flex;justify-content:space-between;font-weight:bold;padding:3px 0;border-top:3px double #000;margin-top:2px;font-size:11px;width:100%;background:#f9f9f9;padding:3px 4px;">
+            <div style="display:flex;justify-content:space-between;font-weight:bold;padding:3px 0;border-top:3px double #000;margin-top:2px;font-size:11px;width:100%;background:#f9f9f9;padding:3px 4px;color:#000;">
                 <span>TOTAL</span>
                 <span>R$ ${total.toFixed(2)}</span>
             </div>
@@ -3859,7 +4100,7 @@ function imprimirCupom(idPedido) {
         
         <div style="margin:4px 0;border-top:1px dashed #000;padding-top:3px;">
             <div style="font-size:7.5px;font-weight:bold;color:#000;margin-bottom:2px;">ENDEREÇO DE ENTREGA</div>
-            <div style="font-size:7px;padding:0.3px 0;width:100%;word-wrap:break-word;white-space:normal;line-height:1.4;">
+            <div style="font-size:7px;padding:0.3px 0;width:100%;word-wrap:break-word;white-space:normal;line-height:1.4;color:#000;">
                 ${endereco}
             </div>
             
@@ -3869,17 +4110,15 @@ function imprimirCupom(idPedido) {
             </div>` : ''}
         </div>
         
-        <div style="text-align:center;border-top:2px solid #000;padding-top:3px;margin-top:3px;font-size:6.5px;width:100%;">
+        <div style="text-align:center;border-top:2px solid #000;padding-top:3px;margin-top:3px;font-size:6.5px;width:100%;color:#000;">
             <p style="margin:0.2px 0;font-weight:bold;">Obrigado pela preferência!</p>
             <p style="margin:0.2px 0;">@mcembalagens.bh</p>
-            <p style="margin:0.2px 0;font-size:5.5px;color:#666;">Emissão: ${new Date().toLocaleString()}</p>
+            <p style="margin:0.2px 0;font-size:5.5px;color:#000;">Emissão: ${new Date().toLocaleString()}</p>
         </div>
     `;
     
     printArea.style.display = 'block';
-    
     window.print();
-    
     setTimeout(() => {
         printArea.style.display = 'none';
     }, 1500);
@@ -4279,7 +4518,7 @@ function renderizarClientes() {
 }
 
 // ============================================================
-// VER DETALHES DO CLIENTE
+// VER DETALHES DO CLIENTE - CORRIGIDO (MOSTRA CPF/CNPJ E IE)
 // ============================================================
 function verDetalhesCliente(id) {
     const cliente = dados.clientes.find(c => parseInt(c.id_cliente) === parseInt(id));
@@ -4291,11 +4530,51 @@ function verDetalhesCliente(id) {
     clienteEditando = cliente;
     const content = document.getElementById('clienteDetalhesContent');
     
+    // ============================================================
+    // 🔥 CORREÇÃO: Pega o documento da coluna 'cpf' ou 'documento'
+    // ============================================================
+    let documento = cliente.documento || cliente.cpf || '';
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: Identifica se é CPF ou CNPJ baseado no tamanho
+    // ============================================================
+    let tipoDocumento = 'Documento';
+    const docLimpo = String(documento).replace(/\D/g, '');
+    if (docLimpo.length === 11) {
+        tipoDocumento = 'CPF';
+    } else if (docLimpo.length === 14) {
+        tipoDocumento = 'CNPJ';
+    } else if (docLimpo.length > 0) {
+        tipoDocumento = 'Documento';
+    }
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: Formata o documento para exibição
+    // ============================================================
+    let documentoFormatado = documento;
+    if (docLimpo.length === 11) {
+        // CPF: 123.456.789-00
+        documentoFormatado = docLimpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    } else if (docLimpo.length === 14) {
+        // CNPJ: 12.345.678/0001-99
+        documentoFormatado = docLimpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    }
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: Busca a Inscrição Estadual
+    // ============================================================
+    let inscricaoEstadual = cliente.inscricao_estadual || '';
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: Campos do modal (adiciona IE)
+    // ============================================================
     const campos = [
         { label: 'ID', key: 'id_cliente', readonly: true },
         { label: 'Nome', key: 'nome', readonly: false },
         { label: 'Email', key: 'email', readonly: false },
         { label: 'Telefone', key: 'telefone', readonly: false },
+        { label: tipoDocumento, key: 'documento', readonly: false, valor: documentoFormatado },
+        { label: 'Inscrição Estadual', key: 'inscricao_estadual', readonly: false, valor: inscricaoEstadual },
         { label: 'Cidade', key: 'cidade', readonly: false },
         { label: 'Estado', key: 'estado', readonly: false },
         { label: 'CEP', key: 'cep', readonly: false },
@@ -4304,14 +4583,20 @@ function verDetalhesCliente(id) {
         { label: 'Data Cadastro', key: 'data_cadastro', readonly: true },
         { label: 'Último Login', key: 'ultimo_login', readonly: true },
         { label: 'Senha (hash)', key: 'senha', readonly: false },
-        { label: 'Documento (CPF/CNPJ)', key: 'documento', readonly: false },
         { label: 'Data Nascimento', key: 'data_nascimento', readonly: false },
         { label: 'Observações', key: 'observacoes', readonly: false },
     ];
     
     let html = `<div class="cliente-detalhes">`;
     campos.forEach(campo => {
-        const valor = cliente[campo.key] || '';
+        // 🔥 CORREÇÃO: Usa o valor específico se existir, senão busca do cliente
+        let valor = campo.valor !== undefined ? campo.valor : (cliente[campo.key] || '');
+        
+        // 🔥 CORREÇÃO: Para o campo documento, se estiver vazio, tenta buscar de novo
+        if (campo.key === 'documento' && !valor) {
+            valor = cliente.cpf || cliente.documento || '';
+        }
+        
         html += `
             <div class="info-row">
                 <div class="label">${campo.label}</div>
@@ -4357,15 +4642,22 @@ function validarSenha() {
     }
 }
 
+// ============================================================
+// EXECUTAR SALVAR CLIENTE - CORRIGIDO (SALVA IE)
+// ============================================================
 async function executarSalvarCliente() {
     if (!clienteEditando) return;
     
     mostrarSpinner('Salvando dados do cliente...');
     
     try {
+        // ============================================================
+        // 🔥 CORREÇÃO: Adiciona inscricao_estadual no array de campos
+        // ============================================================
         const campos = [
             'nome', 'email', 'telefone', 'cidade', 'estado', 'cep', 
-            'endereco', 'bairro', 'senha', 'documento', 'data_nascimento', 'observacoes'
+            'endereco', 'bairro', 'senha', 'documento', 'data_nascimento', 
+            'observacoes', 'inscricao_estadual'  // 🔥 ADICIONADO
         ];
         
         const dadosCliente = {};
@@ -4376,6 +4668,11 @@ async function executarSalvarCliente() {
             }
         });
         dadosCliente.id_cliente = clienteEditando.id_cliente;
+        
+        // 🔥 CORREÇÃO: Garante que o documento seja salvo também como 'cpf'
+        if (dadosCliente.documento) {
+            dadosCliente.cpf = dadosCliente.documento;
+        }
         
         await fetch(API_URL, {
             method: 'POST',
@@ -5197,7 +5494,10 @@ async function cancelarPedido(id) {
 }
 
 // ============================================================
-// PEDIDO MANUAL
+// ABRIR PEDIDO MANUAL - CORRIGIDO (COM BUSCA FUNCIONANDO)
+// ============================================================
+f// ============================================================
+// ABRIR PEDIDO MANUAL - CORRIGIDO (COM VERIFICAÇÃO DE DADOS)
 // ============================================================
 function abrirPedidoManual() {
     carrinhoManual = [];
@@ -5210,78 +5510,255 @@ function abrirPedidoManual() {
     document.getElementById('totalManual').textContent = 'R$ 0,00';
     document.getElementById('totalItensManual').textContent = '0 itens';
     document.getElementById('modalPedidoManual').classList.add('open');
-    carregarProdutosManual();
+    
+    // 🔥 CORREÇÃO: Verifica se os dados já foram carregados
+    if (dados.produtos && dados.produtos.length > 0) {
+        console.log('📦 Dados já carregados, carregando produtos manual...');
+        carregarProdutosManual();
+        configurarBuscaManual();
+    } else {
+        console.log('⏳ Aguardando dados serem carregados...');
+        // Mostra mensagem de carregamento
+        document.getElementById('listaProdutosManual').innerHTML = `
+            <div style="text-align:center;padding:15px;color:#999;">
+                <i class="fas fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:5px;"></i>
+                Carregando produtos...
+            </div>
+        `;
+        
+        // 🔥 CORREÇÃO: Tenta carregar os dados novamente
+        carregarDados().then(function() {
+            console.log('✅ Dados carregados, carregando produtos manual...');
+            carregarProdutosManual();
+            configurarBuscaManual();
+        }).catch(function() {
+            console.log('⚠️ Erro ao carregar dados, tentando novamente em 1s...');
+            setTimeout(function() {
+                carregarDados().then(function() {
+                    carregarProdutosManual();
+                    configurarBuscaManual();
+                });
+            }, 1000);
+        });
+    }
 }
 
+// ============================================================
+// 🔥 CONFIGURAR BUSCA MANUAL - NOVA FUNÇÃO
+// ============================================================
+// ============================================================
+// 🔥 CONFIGURAR BUSCA MANUAL - MAIS AGRESSIVA
+// ============================================================
+function configurarBuscaManual() {
+    const buscaInput = document.getElementById('buscaProdutoManual');
+    const selectCat = document.getElementById('filtroCategoriaManual');
+    
+    console.log('🔧 Configurando busca manual (versão agressiva)...');
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: CONFIGURA O INPUT DE BUSCA
+    // ============================================================
+    if (buscaInput) {
+        // Remove todos os eventos antigos (clonando)
+        const novoInput = buscaInput.cloneNode(true);
+        buscaInput.parentNode.replaceChild(novoInput, buscaInput);
+        
+        // 🔥 CORREÇÃO: Define os eventos DIRETAMENTE no elemento
+        novoInput.oninput = function(e) {
+            console.log('🔍 oninput (DIRETO):', this.value);
+            filtrarProdutosManual();
+        };
+        novoInput.onkeyup = function(e) {
+            console.log('🔍 onkeyup (DIRETO):', this.value);
+            filtrarProdutosManual();
+        };
+        novoInput.onkeydown = function(e) {
+            if (e.key === 'Enter') {
+                console.log('🔍 Enter (DIRETO):', this.value);
+                filtrarProdutosManual();
+            }
+        };
+        
+        // 🔥 CORREÇÃO: Adiciona event listeners como fallback
+        novoInput.addEventListener('input', function(e) {
+            console.log('🔍 addEventListener input:', this.value);
+            filtrarProdutosManual();
+        });
+        novoInput.addEventListener('keyup', function(e) {
+            console.log('🔍 addEventListener keyup:', this.value);
+            filtrarProdutosManual();
+        });
+        
+        // 🔥 CORREÇÃO: Força um evento de input para testar
+        setTimeout(function() {
+            const event = new Event('input');
+            novoInput.dispatchEvent(event);
+            console.log('✅ Evento de input forçado!');
+        }, 200);
+        
+        console.log('✅ Busca configurada com sucesso!');
+    } else {
+        console.warn('⚠️ Elemento buscaProdutoManual não encontrado!');
+    }
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: CONFIGURA O SELECT DE CATEGORIA
+    // ============================================================
+    if (selectCat) {
+        const novoSelect = selectCat.cloneNode(true);
+        selectCat.parentNode.replaceChild(novoSelect, selectCat);
+        
+        novoSelect.onchange = function() {
+            console.log('📂 onchange (DIRETO):', this.value);
+            filtrarProdutosManual();
+        };
+        novoSelect.addEventListener('change', function() {
+            console.log('📂 addEventListener change:', this.value);
+            filtrarProdutosManual();
+        });
+    }
+    
+    // 🔥 CORREÇÃO: Força a primeira filtragem
+    setTimeout(function() {
+        filtrarProdutosManual();
+    }, 300);
+}
+
+// ============================================================
+// CARREGAR PRODUTOS MANUAL - CORRIGIDO
+// ============================================================
+// ============================================================
+// CARREGAR PRODUTOS MANUAL - CORRIGIDO (MAIS ROBUSTO)
+// ============================================================
 function carregarProdutosManual() {
     const container = document.getElementById('listaProdutosManual');
-    const produtos = dados.produtos;
     
-    if (produtos.length === 0) {
+    // 🔥 CORREÇÃO: Verifica se dados.produtos existe
+    if (!dados.produtos || dados.produtos.length === 0) {
         container.innerHTML = `
             <div style="text-align:center;padding:15px;color:#999;">
-                <i class="fas fa-box-open" style="font-size:22px;display:block;margin-bottom:8px;"></i>
-                Nenhum produto disponível
+                <i class="fas fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:5px;"></i>
+                Carregando produtos...
             </div>
         `;
         return;
     }
     
+    console.log('📦 Carregando produtos manual. Total:', dados.produtos.length);
+    
+    // 🔥 CORREÇÃO: Atualiza as categorias no select
     const selectCat = document.getElementById('filtroCategoriaManual');
-    const categorias = [...new Set(produtos.map(p => p.categoria).filter(c => c))];
+    const categorias = [...new Set(dados.produtos.map(p => p.categoria).filter(c => c))];
     selectCat.innerHTML = `<option value="">Todas categorias</option>`;
     categorias.sort().forEach(cat => {
         selectCat.innerHTML += `<option value="${cat}">${cat}</option>`;
     });
     
+    // 🔥 CORREÇÃO: Chama a filtragem imediatamente
     filtrarProdutosManual();
+    
+    // 🔥 CORREÇÃO: Configura a busca novamente após carregar
+    setTimeout(function() {
+        configurarBuscaManual();
+    }, 100);
 }
 
+// ============================================================
+// FILTRAR PRODUTOS MANUAL - CORRIGIDO (COM TRATAMENTO DE TIPOS)
+// ============================================================
 function filtrarProdutosManual() {
     const container = document.getElementById('listaProdutosManual');
-    const busca = document.getElementById('buscaProdutoManual')?.value?.toLowerCase() || '';
-    const categoria = document.getElementById('filtroCategoriaManual')?.value || '';
     
-    let produtos = dados.produtos;
+    const buscaInput = document.getElementById('buscaProdutoManual');
+    const categoriaSelect = document.getElementById('filtroCategoriaManual');
     
-    if (busca) {
-        produtos = produtos.filter(p => {
-            const nome = (p.nome || '').toLowerCase();
-            const codigo = (p.codigo_produto || '').toLowerCase();
-            return nome.includes(busca) || codigo.includes(busca);
-        });
+    let busca = '';
+    let categoria = '';
+    
+    if (buscaInput) {
+        busca = buscaInput.value ? buscaInput.value.toLowerCase().trim() : '';
+    }
+    if (categoriaSelect) {
+        categoria = categoriaSelect.value || '';
     }
     
-    if (categoria) {
-        produtos = produtos.filter(p => p.categoria === categoria);
-    }
+    console.log('🔍 FILTRANDO PRODUTOS: busca="' + busca + '" categoria="' + categoria + '"');
+    console.log('📦 Total de produtos disponíveis:', dados.produtos ? dados.produtos.length : 0);
     
-    if (produtos.length === 0) {
+    if (!dados.produtos || dados.produtos.length === 0) {
         container.innerHTML = `
             <div style="text-align:center;padding:15px;color:#999;">
-                Nenhum produto encontrado
+                <i class="fas fa-spinner fa-spin" style="font-size:18px;display:block;margin-bottom:5px;"></i>
+                Carregando produtos...
             </div>
         `;
         return;
     }
     
-    container.innerHTML = produtos.map(p => {
+    let produtos = dados.produtos;
+    
+    // ============================================================
+    // 🔥 CORREÇÃO: Converter TODOS os campos para string antes de filtrar
+    // ============================================================
+    if (busca) {
+        produtos = produtos.filter(function(p) {
+            // 🔥 CORREÇÃO: Garante que cada campo é uma string
+            const nome = String(p.nome || '').toLowerCase();
+            const codigo = String(p.codigo_produto || '').toLowerCase();
+            const descricao = String(p.descricao || '').toLowerCase();
+            const id = String(p.id || '');
+            return nome.includes(busca) || codigo.includes(busca) || descricao.includes(busca) || id.includes(busca);
+        });
+        console.log('📦 Após filtro de busca:', produtos.length, 'produtos');
+    }
+    
+    if (categoria) {
+        produtos = produtos.filter(function(p) {
+            return String(p.categoria || '') === categoria;
+        });
+        console.log('📦 Após filtro de categoria:', produtos.length, 'produtos');
+    }
+    
+    produtos.sort(function(a, b) {
+        const nomeA = String(a.nome || '').toLowerCase();
+        const nomeB = String(b.nome || '').toLowerCase();
+        return nomeA.localeCompare(nomeB, 'pt-BR');
+    });
+    
+    if (produtos.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center;padding:15px;color:#999;">
+                <i class="fas fa-search" style="font-size:18px;display:block;margin-bottom:5px;"></i>
+                Nenhum produto encontrado para: "${busca || 'vazio'}"
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = produtos.map(function(p) {
         const estoque = parseInt(p.estoque) || 0;
         const podeVender = p.vender_zerado === 'SIM' || estoque > 0;
         const corEstoque = estoque === 0 ? '#e74c3c' : (estoque < 10 ? '#f39c12' : '#27ae60');
-        const qtds = p.quantidades ? p.quantidades.split(',').map(q => q.trim()) : ['1'];
+        const qtds = p.quantidades ? String(p.quantidades).split(',').map(function(q) { return q.trim(); }) : ['1'];
         
-        const optionsHtml = `<option value="">Selecione</option>` + 
-            qtds.map(q => `<option value="${q}">${q} un</option>`).join('');
+        let optionsHtml = '<option value="">Selecione</option>';
+        qtds.forEach(function(q) {
+            optionsHtml += '<option value="' + q + '">' + q + ' un</option>';
+        });
+        
+        let temBerco = '';
+        if (p.descricao && String(p.descricao).toLowerCase().includes('berços')) {
+            temBerco = ' 🧩';
+        }
         
         return `
             <div class="produto-item" style="${!podeVender ? 'opacity:0.5;' : ''}">
                 <div class="info">
-                    <div class="nome">${p.nome || 'Sem nome'}</div>
+                    <div class="nome">${p.nome || 'Sem nome'}${temBerco}</div>
                     <div class="detalhes">
                         Cód: ${p.codigo_produto || '---'} | Estoque: <span style="color:${corEstoque};font-weight:600;">${estoque}</span>
                         ${p.vender_zerado === 'SIM' ? ' | 🔄 Vende zerado' : ''}
-                        ${p.prazo_producao > 0 ? ` | ⏱️ ${p.prazo_producao}dias` : ''}
+                        ${p.prazo_producao > 0 ? ' | ⏱️ ' + p.prazo_producao + 'dias' : ''}
                     </div>
                 </div>
                 <div class="acoes">
@@ -5299,6 +5776,8 @@ function filtrarProdutosManual() {
             </div>
         `;
     }).join('');
+    
+    console.log('✅ Filtragem concluída!', produtos.length, 'produtos exibidos');
 }
 
 function adicionarSelectManual(productId, quantidade) {
@@ -5350,37 +5829,51 @@ function adicionarAoCarrinhoManual(productId, quantidade, precoCustom = null) {
         }
     }
     
+    let precoTotal = 0;
     let precoUnitario = 0;
+    
     if (precoCustom !== null) {
+        // Preço customizado: o usuário digitou o preço unitário
         precoUnitario = precoCustom;
+        precoTotal = precoCustom * qtd;
     } else {
+        // 🔥 CORREÇÃO: Busca o preço para a quantidade selecionada
         const precoVenda = product.preco_venda || '';
+        let precoEncontrado = 0;
+        
         precoVenda.split(';').forEach(p => {
             const parts = p.trim().split(':');
             if (parts.length === 2) {
                 const qtdOpcao = parseInt(parts[0]);
                 if (qtdOpcao === qtd) {
-                    precoUnitario = parseFloat(parts[1]) || 0;
+                    precoEncontrado = parseFloat(parts[1]) || 0;
                 }
             }
         });
-        if (precoUnitario === 0) {
+        
+        // Se não encontrou exato, tenta encontrar o primeiro disponível
+        if (precoEncontrado === 0) {
             const precos = precoVenda.split(';').map(p => {
                 const parts = p.trim().split(':');
                 return { qtd: parseInt(parts[0]) || 0, preco: parseFloat(parts[1]) || 0 };
             });
             precos.sort((a, b) => a.qtd - b.qtd);
             for (const p of precos) {
-                if (p.qtd > 0) {
-                    precoUnitario = p.preco / p.qtd;
+                if (p.qtd > 0 && p.preco > 0) {
+                    precoEncontrado = p.preco;
                     break;
                 }
             }
         }
+        
+        // 🔥 CORREÇÃO: precoEncontrado já é o preço TOTAL para a quantidade
+        // Ex: "50:86.18" → precoEncontrado = 86.18 (já é o total para 50 unidades)
+        precoTotal = precoEncontrado;
+        precoUnitario = qtd > 0 ? precoEncontrado / qtd : 0;
     }
     
-    if (precoUnitario <= 0) {
-        alert('⚠️ Produto sem preço cadastrado. Defina um preço unitário manualmente.');
+    if (precoTotal <= 0) {
+        alert('⚠️ Produto sem preço cadastrado. Defina um preço manualmente.');
         return;
     }
     
@@ -5391,11 +5884,13 @@ function adicionarAoCarrinhoManual(productId, quantidade, precoCustom = null) {
         nome: product.nome || 'Produto',
         quantidade: qtd,
         precoUnitario: precoUnitario,
-        preco: precoUnitario * qtd,
+        preco: precoTotal,  // 🔥 CORREÇÃO: usa o preço total direto (não multiplica)
         estoque: parseInt(product.estoque) || 0,
         vender_zerado: product.vender_zerado === 'SIM',
         isCustom: precoCustom !== null,
-        prazoProducao: parseInt(product.prazo_producao) || 0
+        prazoProducao: parseInt(product.prazo_producao) || 0,
+        descricao: product.descricao || '',
+        pacote_tamanho: 1
     });
     
     recalcularProducao();
@@ -5643,7 +6138,7 @@ function salvarVisualizacaoPedido() {
 }
 
 // ============================================================
-// FINALIZAR PEDIDO MANUAL
+// FINALIZAR PEDIDO MANUAL - CORRIGIDO (COM TRATAMENTO CORS)
 // ============================================================
 async function finalizarPedidoManual() {
     if (carrinhoManual.length === 0) {
@@ -5665,6 +6160,9 @@ async function finalizarPedidoManual() {
     mostrarSpinner('Criando pedido...');
     
     try {
+        // ============================================================
+        // 🔥 BUSCAR ÚLTIMO ID IGUAL AO SITE
+        // ============================================================
         const responseBusca = await fetch(API_URL);
         const dataBusca = await responseBusca.json();
         const pedidos = dataBusca.pedidos || [];
@@ -5679,26 +6177,47 @@ async function finalizarPedidoManual() {
         
         recalcularProducao();
         
+        // ============================================================
+        // 🔥 FORMATAR ITENS IGUAL AO SITE (COMO ARRAY DE OBJETOS)
+        // ============================================================
         const itensPedido = carrinhoManual.map(item => {
             const isProducao = item.isProducao || false;
+            const prazoProducao = isProducao ? (item.prazoProducao || 3) : 0;
+            const nomeBase = item.isCustom ? `${item.nome} (personalizado)` : item.nome;
+            
+            // 🔥 IGUAL AO SITE: Adiciona status no nome
+            let nomeComStatus = nomeBase;
+            if (isProducao && prazoProducao > 0) {
+                nomeComStatus = `${nomeBase} (Produção ${prazoProducao} dias)`;
+            } else if (isProducao) {
+                nomeComStatus = `${nomeBase} (Produção)`;
+            } else {
+                nomeComStatus = `${nomeBase} (Disponível)`;
+            }
+            
+            // 🔥 RETORNA COMO OBJETO (IGUAL AO SITE)
             return {
-                nome: item.isCustom ? `${item.nome} (personalizado)` : item.nome,
+                nome: nomeComStatus,
                 quantidade: item.quantidade,
                 price: item.preco || 0,
                 unit_price: item.precoUnitario || 0,
                 isCustom: item.isCustom || false,
                 isProducao: isProducao,
-                prazoProducao: isProducao ? (item.prazoProducao || 3) : 0,
-                productId: item.productId || null
+                prazoProducao: prazoProducao,
+                productId: item.productId || null,
+                descricao: item.descricao || ''
             };
         });
         
+        // ============================================================
+        // 🔥 PEDIDO IGUAL AO SITE (itens é o ARRAY, não texto)
+        // ============================================================
         const pedidoData = {
             id: novoId,
             cliente_nome: clienteNome,
             cliente_email: clienteEmail || 'pedido_manual@embalagens.com',
             cliente_telefone: clienteTelefone || '',
-            itens: itensPedido,
+            itens: itensPedido,  // 🔥 É UM ARRAY, NÃO TEXTO!
             total: total,
             endereco_entrega: 'Pedido manual - retirada na loja',
             observacoes: 'Pedido realizado manualmente pelo gestor. ' + (document.getElementById('visObs')?.value || ''),
@@ -5716,6 +6235,11 @@ async function finalizarPedidoManual() {
             })
         };
         
+        console.log('📤 Enviando pedido (como array):', pedidoData);
+        
+        // ============================================================
+        // 🔥 ENVIAR PARA A PLANILHA (MESMO DO SITE)
+        // ============================================================
         await fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -5726,6 +6250,9 @@ async function finalizarPedidoManual() {
             })
         });
         
+        // ============================================================
+        // 🔥 BAIXAR ESTOQUE
+        // ============================================================
         const atualizacoes = {};
         carrinhoManual.forEach(item => {
             const isProducao = item.isProducao || false;
@@ -5753,16 +6280,23 @@ async function finalizarPedidoManual() {
             });
         }
         
+        // ============================================================
+        // 🔥 AGUARDAR E RECARREGAR (IGUAL AO SITE)
+        // ============================================================
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Recarrega os dados para sincronizar com a planilha
+        await carregarDados();
+        
         esconderSpinner();
         alert(`✅ Pedido #${novoId} criado com sucesso! Status: Pendente`);
         fecharModal('modalPedidoManual');
         fecharModal('modalVisualizacaoPedido');
         carrinhoManual = [];
         idCounter = 0;
-        carregarDados();
         
     } catch (error) {
-        console.error('Erro ao criar pedido manual:', error);
+        console.error('❌ Erro ao criar pedido manual:', error);
         esconderSpinner();
         alert('⚠️ Erro ao criar pedido. Tente novamente.');
     }
@@ -5828,6 +6362,308 @@ async function atualizarEmSegundoPlano() {
 document.addEventListener('DOMContentLoaded', function() {
     // Inicializa
 });
+
+
+// ============================================================
+// 🔥 FUNÇÕES DE DIAGNÓSTICO PARA TESTAR NO CONSOLE
+// ============================================================
+
+// ============================================================
+// TESTE 1: Verificar se os dados estão carregados
+// ============================================================
+function testarDados() {
+    console.log('========== TESTE DE DADOS ==========');
+    console.log('📦 dados.produtos existe?', dados.produtos ? 'SIM' : 'NÃO');
+    console.log('📦 dados.produtos é array?', Array.isArray(dados.produtos));
+    console.log('📦 Quantidade de produtos:', dados.produtos ? dados.produtos.length : 0);
+    
+    if (dados.produtos && dados.produtos.length > 0) {
+        console.log('📦 Primeiro produto:', dados.produtos[0]);
+        console.log('📦 Último produto:', dados.produtos[dados.produtos.length - 1]);
+        console.log('📦 Exemplos de nomes:');
+        dados.produtos.slice(0, 5).forEach(function(p, i) {
+            console.log(`   ${i+1}. ${p.nome || 'Sem nome'}`);
+        });
+    } else {
+        console.log('❌ Nenhum produto carregado!');
+        console.log('💡 Tente executar: carregarDados()');
+    }
+    console.log('====================================\n');
+}
+
+// ============================================================
+// TESTE 2: Verificar se os elementos do DOM existem
+// ============================================================
+function testarElementos() {
+    console.log('========== TESTE DE ELEMENTOS ==========');
+    
+    const elementos = [
+        'buscaProdutoManual',
+        'filtroCategoriaManual',
+        'listaProdutosManual',
+        'carrinhoManual',
+        'modalPedidoManual'
+    ];
+    
+    elementos.forEach(function(id) {
+        const el = document.getElementById(id);
+        console.log(`🔍 Elemento #${id}:`, el ? '✅ ENCONTRADO' : '❌ NÃO ENCONTRADO');
+        if (el) {
+            console.log(`   Tipo: ${el.tagName}`);
+            console.log(`   Visível: ${el.offsetParent !== null ? 'SIM' : 'NÃO'}`);
+        }
+    });
+    console.log('====================================\n');
+}
+
+// ============================================================
+// TESTE 3: Forçar a filtragem manualmente
+// ============================================================
+function testarFiltroManual(texto) {
+    console.log('========== TESTE DE FILTRO MANUAL ==========');
+    console.log('🔍 Filtrando por:', texto || '(vazio)');
+    
+    const buscaInput = document.getElementById('buscaProdutoManual');
+    if (buscaInput) {
+        buscaInput.value = texto || '';
+        console.log('✅ Input atualizado para:', buscaInput.value);
+    } else {
+        console.log('❌ Input não encontrado!');
+        return;
+    }
+    
+    // Simula o evento de input
+    if (buscaInput) {
+        const event = new Event('input', { bubbles: true });
+        buscaInput.dispatchEvent(event);
+        console.log('✅ Evento "input" disparado manualmente!');
+    }
+    
+    // Tenta filtrar diretamente
+    console.log('🔄 Chamando filtrarProdutosManual() diretamente...');
+    filtrarProdutosManual();
+    
+    console.log('====================================\n');
+}
+
+// ============================================================
+// TESTE 4: Verificar se a função filtrarProdutosManual existe
+// ============================================================
+function testarFuncao() {
+    console.log('========== TESTE DE FUNÇÃO ==========');
+    console.log('🔍 typeof filtrarProdutosManual:', typeof filtrarProdutosManual);
+    console.log('🔍 filtrarProdutosManual é função?', typeof filtrarProdutosManual === 'function');
+    
+    if (typeof filtrarProdutosManual === 'function') {
+        console.log('✅ Função existe!');
+        console.log('📝 Código da função:', filtrarProdutosManual.toString().substring(0, 200) + '...');
+    } else {
+        console.log('❌ Função NÃO EXISTE!');
+        console.log('💡 Verifique se a função foi definida corretamente.');
+    }
+    console.log('====================================\n');
+}
+
+// ============================================================
+// TESTE 5: Verificar eventos anexados ao input
+// ============================================================
+function testarEventos() {
+    console.log('========== TESTE DE EVENTOS ==========');
+    const buscaInput = document.getElementById('buscaProdutoManual');
+    
+    if (!buscaInput) {
+        console.log('❌ Input não encontrado!');
+        return;
+    }
+    
+    console.log('🔍 Input encontrado:', buscaInput);
+    console.log('📝 oninput:', buscaInput.oninput ? buscaInput.oninput.toString() : 'NÃO DEFINIDO');
+    console.log('📝 onkeyup:', buscaInput.onkeyup ? buscaInput.onkeyup.toString() : 'NÃO DEFINIDO');
+    console.log('📝 onkeydown:', buscaInput.onkeydown ? buscaInput.onkeydown.toString() : 'NÃO DEFINIDO');
+    
+    // Verifica listeners (limitado)
+    console.log('📝 Event listeners anexados via addEventListener:');
+    console.log('   (Não é possível listar todos programaticamente)');
+    console.log('💡 Teste prático: digite algo no campo e veja se aparece no console.');
+    console.log('====================================\n');
+}
+
+// ============================================================
+// TESTE 6: Verificar se o modal está aberto
+// ============================================================
+function testarModal() {
+    console.log('========== TESTE DE MODAL ==========');
+    const modal = document.getElementById('modalPedidoManual');
+    
+    if (!modal) {
+        console.log('❌ Modal não encontrado!');
+        return;
+    }
+    
+    console.log('🔍 Modal encontrado:', modal);
+    console.log('📝 Classe "open":', modal.classList.contains('open') ? '✅ SIM' : '❌ NÃO');
+    console.log('📝 Display:', modal.style.display);
+    console.log('📝 Classe completa:', modal.className);
+    console.log('====================================\n');
+}
+
+// ============================================================
+// TESTE 7: Corrigir a busca FORÇADAMENTE
+// ============================================================
+function corrigirBuscaForcada() {
+    console.log('========== CORREÇÃO FORÇADA DA BUSCA ==========');
+    
+    const buscaInput = document.getElementById('buscaProdutoManual');
+    const selectCat = document.getElementById('filtroCategoriaManual');
+    const container = document.getElementById('listaProdutosManual');
+    
+    if (!buscaInput) {
+        console.log('❌ Input não encontrado!');
+        return;
+    }
+    
+    console.log('🔄 Recriando o input de busca...');
+    
+    // Cria um novo input
+    const novoInput = document.createElement('input');
+    novoInput.type = 'text';
+    novoInput.id = 'buscaProdutoManual';
+    novoInput.placeholder = 'Digite o nome ou código do produto...';
+    novoInput.style.cssText = 'flex:1;min-width:180px;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;';
+    
+    // 🔥 CORREÇÃO: Define a função diretamente
+    novoInput.oninput = function() {
+        console.log('🔍 NOVO INPUT oninput:', this.value);
+        filtrarProdutosManual();
+    };
+    novoInput.onkeyup = function() {
+        console.log('🔍 NOVO INPUT onkeyup:', this.value);
+        filtrarProdutosManual();
+    };
+    
+    // Substitui o input antigo
+    const parent = buscaInput.parentNode;
+    parent.replaceChild(novoInput, buscaInput);
+    
+    console.log('✅ Input recriado com sucesso!');
+    
+    // Recria o select também
+    if (selectCat) {
+        console.log('🔄 Recriando o select de categoria...');
+        const novoSelect = document.createElement('select');
+        novoSelect.id = 'filtroCategoriaManual';
+        novoSelect.style.cssText = 'padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;background:white;min-width:130px;';
+        
+        // Adiciona as opções
+        const categorias = [...new Set(dados.produtos.map(p => p.categoria).filter(c => c))];
+        novoSelect.innerHTML = `<option value="">Todas categorias</option>`;
+        categorias.sort().forEach(cat => {
+            novoSelect.innerHTML += `<option value="${cat}">${cat}</option>`;
+        });
+        
+        novoSelect.onchange = function() {
+            console.log('📂 NOVO SELECT onchange:', this.value);
+            filtrarProdutosManual();
+        };
+        
+        const parentSelect = selectCat.parentNode;
+        parentSelect.replaceChild(novoSelect, selectCat);
+        console.log('✅ Select recriado com sucesso!');
+    }
+    
+    // Força a filtragem
+    setTimeout(function() {
+        console.log('🔄 Forçando filtragem inicial...');
+        filtrarProdutosManual();
+    }, 100);
+    
+    console.log('====================================\n');
+    console.log('💡 AGORA TESTE: digite algo no campo de busca!');
+}
+
+// ============================================================
+// TESTE 8: Função para testar se o DOM está respondendo
+// ============================================================
+function testarDOM() {
+    console.log('========== TESTE DE DOM ==========');
+    
+    // Verifica todos os elementos importantes
+    const ids = ['buscaProdutoManual', 'filtroCategoriaManual', 'listaProdutosManual', 'modalPedidoManual'];
+    ids.forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            console.log(`✅ #${id} encontrado`);
+            console.log(`   HTML: ${el.outerHTML.substring(0, 100)}...`);
+        } else {
+            console.log(`❌ #${id} NÃO encontrado`);
+        }
+    });
+    
+    console.log('====================================\n');
+}
+
+// ============================================================
+// 🔥 FUNÇÃO PRINCIPAL: EXECUTAR TODOS OS TESTES
+// ============================================================
+function diagnosticarBusca() {
+    console.log('\n');
+    console.log('╔════════════════════════════════════════════════════════════╗');
+    console.log('║           🔍 DIAGNÓSTICO DA BUSCA DO PEDIDO MANUAL        ║');
+    console.log('╚════════════════════════════════════════════════════════════╝');
+    console.log('\n');
+    
+    testarDados();
+    testarElementos();
+    testarFuncao();
+    testarEventos();
+    testarModal();
+    
+    console.log('╔════════════════════════════════════════════════════════════╗');
+    console.log('║           📋 PRÓXIMOS PASSOS                              ║');
+    console.log('╚════════════════════════════════════════════════════════════╝');
+    console.log('1️⃣ Se os dados NÃO foram carregados:');
+    console.log('   ▶️ Execute: carregarDados()');
+    console.log('   ▶️ Depois: abrirPedidoManual()');
+    console.log('\n');
+    console.log('2️⃣ Se os dados estão carregados mas a busca não funciona:');
+    console.log('   ▶️ Execute: corrigirBuscaForcada()');
+    console.log('   ▶️ Depois digite algo no campo de busca');
+    console.log('\n');
+    console.log('3️⃣ Se quiser testar a filtragem manualmente:');
+    console.log('   ▶️ Execute: testarFiltroManual("texto")');
+    console.log('\n');
+}
+
+// ============================================================
+// 🔥 FUNÇÃO PARA FORÇAR A CORREÇÃO DA BUSCA
+// ============================================================
+function forcarCorrecaoBusca() {
+    console.log('🔥 FORÇANDO CORREÇÃO DA BUSCA...');
+    
+    // 1. Verifica se os dados estão carregados
+    if (!dados.produtos || dados.produtos.length === 0) {
+        console.log('⚠️ Dados não carregados. Carregando...');
+        carregarDados().then(function() {
+            console.log('✅ Dados carregados! Aplicando correção...');
+            corrigirBuscaForcada();
+        });
+    } else {
+        console.log('✅ Dados já carregados! Aplicando correção...');
+        corrigirBuscaForcada();
+    }
+}
+
+console.log('✅ FUNÇÕES DE DIAGNÓSTICO CARREGADAS!');
+console.log('');
+console.log('📋 COMANDOS DISPONÍVEIS:');
+console.log('   diagnosticarBusca()    - Executa todos os testes');
+console.log('   testarDados()          - Verifica se os dados estão carregados');
+console.log('   testarElementos()      - Verifica se os elementos do DOM existem');
+console.log('   testarFiltroManual()   - Testa a filtragem manualmente');
+console.log('   corrigirBuscaForcada() - Recria o input e select do zero');
+console.log('   forcarCorrecaoBusca()  - Força a correção completa');
+console.log('');
+console.log('💡 EXECUTE: forcarCorrecaoBusca() para corrigir automaticamente');
 
 </script>
 
