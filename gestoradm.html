@@ -1643,6 +1643,8 @@
     </style>
 </head>
 <body>
+
+    
 <!-- ============================================================
      TELA DE LOGIN
      ============================================================ -->
@@ -2115,16 +2117,16 @@
     </div>
 </div>
 
-<!-- MODAL STATUS -->
+<!-- MODAL STATUS - CORRIGIDO COM CAMPO DE RASTREIO -->
 <div class="modal-overlay" id="modalStatus">
-    <div class="modal" style="max-width:400px;">
+    <div class="modal" style="max-width:450px;">
         <div class="modal-header">
             <h2>Atualizar Status</h2>
             <button class="modal-close" onclick="fecharModal('modalStatus')">&times;</button>
         </div>
         <div class="form-group">
             <label>Novo Status</label>
-            <select id="status_pedido" class="form-control">
+            <select id="status_pedido" class="form-control" onchange="toggleRastreio()">
                 <option value="Pendente">⏳ Pendente</option>
                 <option value="Em andamento">🔄 Em andamento</option>
                 <option value="Enviado">📦 Enviado</option>
@@ -2132,6 +2134,19 @@
                 <option value="Cancelado">❌ Cancelado</option>
             </select>
         </div>
+        
+        <!-- CAMPO DE RASTREIO (aparece quando seleciona "Enviado") -->
+        <div class="form-group" id="campoRastreio" style="display:none; background:#f8f9fa; padding:15px; border-radius:8px; border-left:4px solid #f39c12;">
+            <label style="font-weight:700; color:var(--primary-blue);">
+                <i class="fas fa-truck"></i> Código de Rastreio
+            </label>
+            <input type="text" id="codigo_rastreio" placeholder="Ex: BR123456789BR" 
+                   style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;margin-top:4px;">
+            <p style="font-size:11px;color:#888;margin-top:4px;">
+                <i class="fas fa-info-circle"></i> Digite o código de rastreio para acompanhamento do pedido
+            </p>
+        </div>
+        
         <div class="form-actions">
             <button class="btn-cancel" onclick="fecharModal('modalStatus')">Cancelar</button>
             <button class="btn-save" onclick="atualizarStatus()"><i class="fas fa-save"></i> Salvar</button>
@@ -3245,11 +3260,13 @@ async function salvarEdicaoPedido(id) {
 }
 
 // ============================================================
-// ATUALIZAR STATUS
+// ATUALIZAR STATUS - CORRIGIDO (SALVA RASTREIO)
 // ============================================================
 async function atualizarStatus() {
     const novoStatus = document.getElementById('status_pedido').value;
+    const codigoRastreio = document.getElementById('codigo_rastreio').value.trim();
     
+    // Se for cancelado, chama a função de cancelar
     if (novoStatus === 'Cancelado') {
         fecharModal('modalStatus');
         await cancelarPedido(pedidoEditando);
@@ -3259,6 +3276,40 @@ async function atualizarStatus() {
     mostrarSpinner('Atualizando status...');
     
     try {
+        // Busca o pedido atual para manter as observações existentes
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        const pedido = data.pedidos.find(p => parseInt(p.id_pedido) === parseInt(pedidoEditando));
+        
+        let observacoesAtuais = pedido ? pedido.observacoes || '' : '';
+        
+        // Remove qualquer rastreio antigo das observações
+        observacoesAtuais = observacoesAtuais.replace(/\s*\|\s*Rastreio:\s*[A-Za-z0-9]+/gi, '');
+        observacoesAtuais = observacoesAtuais.trim();
+        
+        // Adiciona o novo rastreio se for "Enviado" e tiver código
+        if (novoStatus === 'Enviado' && codigoRastreio) {
+            // Garante que não fique com "| |" vazios
+            if (observacoesAtuais && !observacoesAtuais.endsWith('|')) {
+                observacoesAtuais += ' | ';
+            } else if (!observacoesAtuais) {
+                observacoesAtuais = '';
+            }
+            observacoesAtuais += `Rastreio: ${codigoRastreio}`;
+        }
+        
+        // Limpa observações se ficou vazio
+        observacoesAtuais = observacoesAtuais.trim();
+        if (observacoesAtuais === '|' || observacoesAtuais === '') {
+            observacoesAtuais = '';
+        }
+        
+        console.log('📤 Atualizando pedido #' + pedidoEditando);
+        console.log('   Status:', novoStatus);
+        console.log('   Rastreio:', codigoRastreio || 'Nenhum');
+        console.log('   Observações:', observacoesAtuais);
+        
+        // Envia a atualização completa
         await fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -3266,12 +3317,21 @@ async function atualizarStatus() {
             body: JSON.stringify({
                 acao: 'atualizar_status_pedido',
                 id_pedido: pedidoEditando,
-                status: novoStatus
+                status: novoStatus,
+                rastreio: codigoRastreio || '',
+                observacoes: observacoesAtuais
             })
         });
 
         esconderSpinner();
-        alert('✅ Status atualizado com sucesso!');
+        
+        // Mensagem de sucesso personalizada
+        let mensagem = `✅ Status atualizado para: ${novoStatus}`;
+        if (novoStatus === 'Enviado' && codigoRastreio) {
+            mensagem += `\n📦 Código de rastreio: ${codigoRastreio}`;
+        }
+        alert(mensagem);
+        
         fecharModal('modalStatus');
         carregarDadosParcial();
 
@@ -3281,6 +3341,27 @@ async function atualizarStatus() {
         alert('⚠️ Erro ao atualizar status. Verifique sua conexão.');
     }
 }
+
+
+
+
+// ============================================================
+// EXTRAIR RASTREIO DAS OBSERVAÇÕES - FUNÇÃO AUXILIAR
+// ============================================================
+function extrairRastreio(observacoes) {
+    if (!observacoes) return null;
+    const match = observacoes.match(/\|\s*Rastreio:\s*([A-Za-z0-9]+)/i);
+    if (match) {
+        return match[1];
+    }
+    // Tenta encontrar padrão de código de rastreio (ex: BR123456789BR)
+    const match2 = observacoes.match(/\b([A-Z]{2}\d{9,12}[A-Z]{2})\b/i);
+    if (match2) {
+        return match2[1];
+    }
+    return null;
+}
+
 
 // ============================================================
 // FUNÇÃO PARA FINALIZAR PEDIDO VIA CHECKOUT
@@ -3445,7 +3526,7 @@ function renderizarPendentes() {
 }
 
 // ============================================================
-// RENDERIZAR TODOS PEDIDOS
+// RENDERIZAR TODOS PEDIDOS - CORRIGIDO (COM RASTREIO)
 // ============================================================
 function renderizarTodosPedidos() {
     const tbody = document.getElementById('pedidosTable');
@@ -3481,6 +3562,25 @@ function renderizarTodosPedidos() {
     tbody.innerHTML = pedidosOrdenados.map(p => {
         const statusClass = `status-${(p.status || 'pendente').toLowerCase().replace(/ /g, '_')}`;
         
+        // ============================================================
+        // 🔥 EXTRAI O CÓDIGO DE RASTREIO DAS OBSERVAÇÕES
+        // ============================================================
+        let codigoRastreio = '';
+        if (p.observacoes) {
+            // Tenta encontrar "Rastreio: XXXXX" nas observações
+            const match = p.observacoes.match(/\|\s*Rastreio:\s*([A-Za-z0-9]+)/i);
+            if (match) {
+                codigoRastreio = match[1];
+            }
+            // Se não achou no formato padrão, tenta um código de rastreio genérico
+            if (!codigoRastreio) {
+                const match2 = p.observacoes.match(/\b([A-Z]{2}\d{9,12}[A-Z]{2})\b/i);
+                if (match2) {
+                    codigoRastreio = match2[1];
+                }
+            }
+        }
+        
         let itensResumo = p.itens || '';
         try {
             if (typeof p.itens === 'string') {
@@ -3512,6 +3612,9 @@ function renderizarTodosPedidos() {
             </td>
             <td><strong>R$ ${parseFloat(p.total || 0).toFixed(2)}</strong></td>
             <td><span class="status-badge ${statusClass}">${p.status || 'Pendente'}</span></td>
+            <td style="font-size:11px;">
+                ${codigoRastreio ? `<span style="font-family:monospace;font-size:10px;background:#f0f4f8;padding:2px 8px;border-radius:4px;display:inline-block;">📦 ${codigoRastreio}</span>` : '-'}
+            </td>
             <td style="font-size:11px;">${p.data_pedido || '-'}</td>
             <td>
                 <button class="btn-sm btn-status" onclick="abrirModalStatus(${p.id_pedido}, '${p.status || 'Pendente'}')">
@@ -5197,10 +5300,47 @@ async function salvarProduto(event) {
     }
 }
 
+// ============================================================
+// ABRIR MODAL STATUS - CORRIGIDO (COM RASTREIO)
+// ============================================================
 function abrirModalStatus(id, statusAtual) {
     pedidoEditando = id;
+    
+    // Busca o pedido para ver se já tem código de rastreio
+    const pedido = dados.pedidos.find(p => parseInt(p.id_pedido) === parseInt(id));
+    let codigoRastreioAtual = '';
+    if (pedido && pedido.observacoes) {
+        const match = pedido.observacoes.match(/\|\s*Rastreio:\s*([A-Za-z0-9]+)/i);
+        if (match) {
+            codigoRastreioAtual = match[1];
+        }
+    }
+    
     document.getElementById('status_pedido').value = statusAtual || 'Pendente';
+    document.getElementById('codigo_rastreio').value = codigoRastreioAtual || '';
+    
+    // Mostra/esconde o campo de rastreio baseado no status atual
+    toggleRastreio();
+    
     document.getElementById('modalStatus').classList.add('open');
+}
+
+// ============================================================
+// TOGGLE RASTREIO - Mostra/esconde campo de rastreio
+// ============================================================
+function toggleRastreio() {
+    const status = document.getElementById('status_pedido').value;
+    const campo = document.getElementById('campoRastreio');
+    
+    if (status === 'Enviado') {
+        campo.style.display = 'block';
+        // Dá foco no campo quando aparece
+        setTimeout(() => {
+            document.getElementById('codigo_rastreio').focus();
+        }, 300);
+    } else {
+        campo.style.display = 'none';
+    }
 }
 
 // ============================================================
@@ -5798,8 +5938,9 @@ function adicionarQtdCustomManual(productId) {
         return;
     }
     
-    if (!precoUnitario || precoUnitario <= 0) {
-        alert('⚠️ Digite um preço unitário válido.');
+    // 🔥 CORREÇÃO: ACEITA 0,00 (antes era > 0)
+    if (isNaN(precoUnitario) || precoUnitario < 0) {
+        alert('⚠️ Digite um preço válido (pode ser 0,00).');
         return;
     }
     
@@ -5833,11 +5974,11 @@ function adicionarAoCarrinhoManual(productId, quantidade, precoCustom = null) {
     let precoUnitario = 0;
     
     if (precoCustom !== null) {
-        // Preço customizado: o usuário digitou o preço unitário
+        // 🔥 CORREÇÃO: ACEITA 0,00
         precoUnitario = precoCustom;
         precoTotal = precoCustom * qtd;
     } else {
-        // 🔥 CORREÇÃO: Busca o preço para a quantidade selecionada
+        // Busca o preço para a quantidade selecionada
         const precoVenda = product.preco_venda || '';
         let precoEncontrado = 0;
         
@@ -5851,7 +5992,6 @@ function adicionarAoCarrinhoManual(productId, quantidade, precoCustom = null) {
             }
         });
         
-        // Se não encontrou exato, tenta encontrar o primeiro disponível
         if (precoEncontrado === 0) {
             const precos = precoVenda.split(';').map(p => {
                 const parts = p.trim().split(':');
@@ -5859,21 +5999,20 @@ function adicionarAoCarrinhoManual(productId, quantidade, precoCustom = null) {
             });
             precos.sort((a, b) => a.qtd - b.qtd);
             for (const p of precos) {
-                if (p.qtd > 0 && p.preco > 0) {
+                if (p.qtd > 0 && p.preco >= 0) {  // 🔥 CORREÇÃO: >= 0
                     precoEncontrado = p.preco;
                     break;
                 }
             }
         }
         
-        // 🔥 CORREÇÃO: precoEncontrado já é o preço TOTAL para a quantidade
-        // Ex: "50:86.18" → precoEncontrado = 86.18 (já é o total para 50 unidades)
         precoTotal = precoEncontrado;
         precoUnitario = qtd > 0 ? precoEncontrado / qtd : 0;
     }
     
-    if (precoTotal <= 0) {
-        alert('⚠️ Produto sem preço cadastrado. Defina um preço manualmente.');
+    // 🔥 CORREÇÃO: PERMITE 0,00
+    if (precoTotal < 0) {
+        alert('⚠️ Preço inválido.');
         return;
     }
     
@@ -5884,7 +6023,7 @@ function adicionarAoCarrinhoManual(productId, quantidade, precoCustom = null) {
         nome: product.nome || 'Produto',
         quantidade: qtd,
         precoUnitario: precoUnitario,
-        preco: precoTotal,  // 🔥 CORREÇÃO: usa o preço total direto (não multiplica)
+        preco: precoTotal,
         estoque: parseInt(product.estoque) || 0,
         vender_zerado: product.vender_zerado === 'SIM',
         isCustom: precoCustom !== null,
@@ -6056,6 +6195,15 @@ function visualizarPedidoManual() {
     
     document.getElementById('visTotalGeral').textContent = `R$ ${total.toFixed(2)}`;
     
+    // 🔥 CORREÇÃO: Se total for 0, mostra aviso
+    if (total === 0) {
+        container.innerHTML += `
+            <div style="padding:8px;margin-top:8px;background:#fff3cd;border-radius:4px;text-align:center;font-size:12px;color:#856404;">
+                ⚠️ Total: R$ 0,00 - Apenas baixa de estoque
+            </div>
+        `;
+    }
+    
     document.getElementById('modalVisualizacaoPedido').classList.add('open');
 }
 
@@ -6151,6 +6299,14 @@ async function finalizarPedidoManual() {
     let clienteEmail = document.getElementById('visClienteEmail')?.value || '';
     let pagamento = document.getElementById('visPagamento')?.value || 'À vista';
     
+    // 🔥 CORREÇÃO: PERGUNTA SE DESEJA CONTINUAR COM TOTAL 0,00
+    const total = carrinhoManual.reduce((sum, item) => sum + (item.preco || 0), 0);
+    if (total === 0) {
+        if (!confirm(`⚠️ O valor total do pedido é R$ 0,00.\n\nDeseja continuar mesmo assim?\n\nIsso dará baixa no estoque sem custo.`)) {
+            return;
+        }
+    }
+    
     if (!document.getElementById('modalVisualizacaoPedido').classList.contains('open')) {
         clienteNome = prompt('Nome do cliente:') || 'Cliente não identificado';
         clienteTelefone = prompt('Telefone do cliente (opcional):') || '';
@@ -6160,9 +6316,7 @@ async function finalizarPedidoManual() {
     mostrarSpinner('Criando pedido...');
     
     try {
-        // ============================================================
-        // 🔥 BUSCAR ÚLTIMO ID IGUAL AO SITE
-        // ============================================================
+        // Busca o último ID
         const responseBusca = await fetch(API_URL);
         const dataBusca = await responseBusca.json();
         const pedidos = dataBusca.pedidos || [];
@@ -6173,19 +6327,13 @@ async function finalizarPedidoManual() {
         });
         const novoId = ultimoId + 1;
         
-        const total = carrinhoManual.reduce((sum, item) => sum + (item.preco || 0), 0);
-        
         recalcularProducao();
         
-        // ============================================================
-        // 🔥 FORMATAR ITENS IGUAL AO SITE (COMO ARRAY DE OBJETOS)
-        // ============================================================
         const itensPedido = carrinhoManual.map(item => {
             const isProducao = item.isProducao || false;
             const prazoProducao = isProducao ? (item.prazoProducao || 3) : 0;
             const nomeBase = item.isCustom ? `${item.nome} (personalizado)` : item.nome;
             
-            // 🔥 IGUAL AO SITE: Adiciona status no nome
             let nomeComStatus = nomeBase;
             if (isProducao && prazoProducao > 0) {
                 nomeComStatus = `${nomeBase} (Produção ${prazoProducao} dias)`;
@@ -6195,7 +6343,6 @@ async function finalizarPedidoManual() {
                 nomeComStatus = `${nomeBase} (Disponível)`;
             }
             
-            // 🔥 RETORNA COMO OBJETO (IGUAL AO SITE)
             return {
                 nome: nomeComStatus,
                 quantidade: item.quantidade,
@@ -6209,15 +6356,12 @@ async function finalizarPedidoManual() {
             };
         });
         
-        // ============================================================
-        // 🔥 PEDIDO IGUAL AO SITE (itens é o ARRAY, não texto)
-        // ============================================================
         const pedidoData = {
             id: novoId,
             cliente_nome: clienteNome,
             cliente_email: clienteEmail || 'pedido_manual@embalagens.com',
             cliente_telefone: clienteTelefone || '',
-            itens: itensPedido,  // 🔥 É UM ARRAY, NÃO TEXTO!
+            itens: itensPedido,
             total: total,
             endereco_entrega: 'Pedido manual - retirada na loja',
             observacoes: 'Pedido realizado manualmente pelo gestor. ' + (document.getElementById('visObs')?.value || ''),
@@ -6235,11 +6379,8 @@ async function finalizarPedidoManual() {
             })
         };
         
-        console.log('📤 Enviando pedido (como array):', pedidoData);
+        console.log('📤 Enviando pedido (total R$ ' + total.toFixed(2) + '):', pedidoData);
         
-        // ============================================================
-        // 🔥 ENVIAR PARA A PLANILHA (MESMO DO SITE)
-        // ============================================================
         await fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -6250,9 +6391,7 @@ async function finalizarPedidoManual() {
             })
         });
         
-        // ============================================================
-        // 🔥 BAIXAR ESTOQUE
-        // ============================================================
+        // Baixar estoque (mesmo com valor 0,00)
         const atualizacoes = {};
         carrinhoManual.forEach(item => {
             const isProducao = item.isProducao || false;
@@ -6280,16 +6419,17 @@ async function finalizarPedidoManual() {
             });
         }
         
-        // ============================================================
-        // 🔥 AGUARDAR E RECARREGAR (IGUAL AO SITE)
-        // ============================================================
         await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Recarrega os dados para sincronizar com a planilha
         await carregarDados();
         
         esconderSpinner();
-        alert(`✅ Pedido #${novoId} criado com sucesso! Status: Pendente`);
+        
+        if (total === 0) {
+            alert(`✅ Pedido #${novoId} criado com sucesso!\n\n📦 ESTOQUE BAIXADO: ${carrinhoManual.length} produto(s)\n💰 Valor: R$ 0,00`);
+        } else {
+            alert(`✅ Pedido #${novoId} criado com sucesso! Total: R$ ${total.toFixed(2)}`);
+        }
+        
         fecharModal('modalPedidoManual');
         fecharModal('modalVisualizacaoPedido');
         carrinhoManual = [];
