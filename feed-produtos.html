@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Feed de Produtos - MC Embalagens BH</title>
+</head>
+<body>
+    <div id="status">🔄 Carregando produtos da planilha...</div>
+    <pre id="xml-output"></pre>
+
+    <script>
+        // ============================================================
+        // CONFIGURAÇÃO
+        // ============================================================
+        // URL da sua API (a mesma que seu site usa)
+        const API_URL = 'https://script.google.com/macros/s/AKfycbzcTtrNqiyXbk3RvGY0qTGhriSo9nvFjwXrG6gGt4YcECH6d7WSlPgRRcVYDX2XwIGQ1g/exec';
+        
+        // URL do seu site (para o link dos produtos)
+        const URL_SITE = 'https://mcembalagens.com.br/';
+        
+        // Categoria padrão para o Google
+        const CATEGORIA_GOOGLE = 'Office Supplies > Packaging & Shipping';
+
+        // ============================================================
+        // FUNÇÃO PARA BUSCAR PRODUTOS DA PLANILHA
+        // ============================================================
+        async function buscarProdutosPlanilha() {
+            try {
+                console.log('🔄 Buscando produtos da planilha...');
+                
+                const response = await fetch(API_URL);
+                if (!response.ok) {
+                    throw new Error('Erro HTTP: ' + response.status);
+                }
+                
+                const data = await response.json();
+                console.log('📊 Dados recebidos:', data);
+                
+                if (!data.produtos || data.produtos.length === 0) {
+                    throw new Error('Nenhum produto encontrado na planilha');
+                }
+                
+                // Filtra apenas produtos ativos
+                const produtosAtivos = data.produtos.filter(p => {
+                    return String(p.produto_ativado || '').toUpperCase().trim() === 'SIM';
+                });
+                
+                console.log('✅ ' + produtosAtivos.length + ' produtos ativos encontrados');
+                return produtosAtivos;
+                
+            } catch (error) {
+                console.error('❌ Erro ao buscar produtos:', error);
+                throw error;
+            }
+        }
+
+        // ============================================================
+        // FUNÇÃO PARA EXTRAIR PREÇO DO PRODUTO
+        // ============================================================
+        function extrairPreco(produto) {
+            // Tenta pegar o primeiro preço da lista
+            if (produto.preco_venda) {
+                const precos = produto.preco_venda.split(';');
+                if (precos.length > 0) {
+                    const parts = precos[0].trim().split(':');
+                    if (parts.length === 2) {
+                        return parseFloat(parts[1]) || 0;
+                    }
+                }
+            }
+            return 0;
+        }
+
+        // ============================================================
+        // FUNÇÃO PARA DETERMINAR DISPONIBILIDADE
+        // ============================================================
+        function getDisponibilidade(produto) {
+            const estoque = parseInt(produto.estoque) || 0;
+            const venderZerado = String(produto.vender_zerado || '').toUpperCase().trim() === 'SIM';
+            
+            if (venderZerado && estoque === 0) {
+                return 'preorder';
+            } else if (estoque > 0) {
+                return 'in stock';
+            } else {
+                return 'out of stock';
+            }
+        }
+
+        // ============================================================
+        // FUNÇÃO PARA PEGAR A PRIMEIRA IMAGEM DO PRODUTO
+        // ============================================================
+        function getImagemProduto(produto) {
+            // Tenta pegar da imagem principal
+            if (produto.imagem_principal && produto.imagem_principal.trim()) {
+                return produto.imagem_principal.trim();
+            }
+            
+            // Tenta pegar do carousel
+            if (produto.imagens_carousel) {
+                const imagens = produto.imagens_carousel.split(',').map(i => i.trim()).filter(i => i);
+                if (imagens.length > 0) {
+                    return imagens[0];
+                }
+            }
+            
+            // Tenta pegar da imagem
+            if (produto.imagem && produto.imagem.trim()) {
+                return produto.imagem.trim();
+            }
+            
+            // Fallback
+            return 'https://via.placeholder.com/300x300/1a3a5c/ffffff?text=MC+Embalagens';
+        }
+
+        // ============================================================
+        // FUNÇÃO PARA ESCAPAR CARACTERES XML
+        // ============================================================
+        function escapeXML(texto) {
+            if (!texto) return '';
+            return String(texto)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;');
+        }
+
+        // ============================================================
+        // FUNÇÃO PARA GERAR FEED XML
+        // ============================================================
+        function gerarFeedXML(produtos) {
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            xml += '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n';
+            xml += '  <channel>\n';
+            xml += '    <title>MC Embalagens BH - Produtos</title>\n';
+            xml += '    <link>' + URL_SITE + '</link>\n';
+            xml += '    <description>Feed de produtos da MC Embalagens BH - Sua loja de embalagens</description>\n';
+            xml += '    <language>pt-BR</language>\n';
+            xml += '    <lastBuildDate>' + new Date().toUTCString() + '</lastBuildDate>\n';
+
+            produtos.forEach(function(p) {
+                const id = parseInt(p.id) || 0;
+                const nome = p.nome || 'Produto sem nome';
+                const descricao = p.descricao || nome;
+                const preco = extrairPreco(p);
+                const imagem = getImagemProduto(p);
+                const codigo = p.codigo_produto || 'MC-' + String(id).padStart(4, '0');
+                const disponibilidade = getDisponibilidade(p);
+                const estoque = parseInt(p.estoque) || 0;
+                const venderZerado = String(p.vender_zerado || '').toUpperCase().trim() === 'SIM';
+                const prazoProducao = parseInt(p.prazo_producao) || 7;
+                
+                // Preço formatado para o Google
+                const precoFormatado = 'R$ ' + preco.toFixed(2).replace('.', ',') + ' BRL';
+
+                // Descrição com informações de produção
+                let descricaoCompleta = descricao;
+                if (venderZerado && estoque === 0) {
+                    descricaoCompleta += ' Produzido sob encomenda em ' + prazoProducao + ' dias úteis.';
+                }
+
+                xml += '    <item>\n';
+                xml += '      <g:id>' + id + '</g:id>\n';
+                xml += '      <g:title>' + escapeXML(nome) + '</g:title>\n';
+                xml += '      <g:description>' + escapeXML(descricaoCompleta) + '</g:description>\n';
+                xml += '      <g:link>' + URL_SITE + '#produto-' + id + '</g:link>\n';
+                xml += '      <g:image_link>' + escapeXML(imagem) + '</g:image_link>\n';
+                xml += '      <g:price>' + precoFormatado + '</g:price>\n';
+                xml += '      <g:availability>' + disponibilidade + '</g:availability>\n';
+                xml += '      <g:brand>MC Embalagens</g:brand>\n';
+                xml += '      <g:mpn>' + escapeXML(codigo) + '</g:mpn>\n';
+                xml += '      <g:google_product_category>' + CATEGORIA_GOOGLE + '</g:google_product_category>\n';
+                xml += '      <g:condition>new</g:condition>\n';
+
+                // Se for pré-venda, adiciona data estimada
+                if (disponibilidade === 'preorder') {
+                    const dataEstimada = new Date();
+                    dataEstimada.setDate(dataEstimada.getDate() + prazoProducao);
+                    const dataStr = dataEstimada.toISOString().split('T')[0];
+                    xml += '      <g:availability_date>' + dataStr + '</g:availability_date>\n';
+                }
+
+                xml += '    </item>\n';
+            });
+
+            xml += '  </channel>\n';
+            xml += '</rss>';
+
+            return xml;
+        }
+
+        // ============================================================
+        // FUNÇÃO PRINCIPAL
+        // ============================================================
+        async function main() {
+            const statusEl = document.getElementById('status');
+            const outputEl = document.getElementById('xml-output');
+            
+            try {
+                statusEl.textContent = '🔄 Buscando produtos da planilha...';
+                
+                // Busca produtos
+                const produtos = await buscarProdutosPlanilha();
+                
+                if (produtos.length === 0) {
+                    statusEl.textContent = '⚠️ Nenhum produto ativo encontrado na planilha.';
+                    outputEl.textContent = '<!-- Nenhum produto ativo encontrado -->';
+                    return;
+                }
+                
+                statusEl.textContent = '✅ ' + produtos.length + ' produtos encontrados. Gerando feed XML...';
+                
+                // Gera feed
+                const feedXML = gerarFeedXML(produtos);
+                
+                // Mostra no output
+                outputEl.textContent = feedXML;
+                
+                statusEl.textContent = '✅ Feed gerado com ' + produtos.length + ' produtos!';
+                console.log('✅ Feed XML gerado com ' + produtos.length + ' produtos!');
+                
+                // Se a URL tiver ?xml, mostra apenas o XML puro
+                if (window.location.search.includes('xml')) {
+                    document.body.innerHTML = '<pre>' + feedXML + '</pre>';
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                statusEl.textContent = '❌ Erro ao gerar feed: ' + error.message;
+                outputEl.textContent = '<!-- Erro: ' + error.message + ' -->';
+            }
+        }
+
+        // ============================================================
+        // INICIAR
+        // ============================================================
+        main();
+    </script>
+</body>
+</html>
