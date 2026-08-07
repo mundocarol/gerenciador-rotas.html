@@ -2167,6 +2167,77 @@
             <button class="modal-close" onclick="fecharModal('modalPedidoManual')">&times;</button>
         </div>
         <div id="pedidoManualContent">
+            
+            <!-- 🔥 NOVO: BUSCA DE CLIENTES -->
+            <div class="form-group" style="background:#f0f4f8;padding:12px;border-radius:8px;border:2px solid var(--primary-blue);margin-bottom:12px;">
+                <label style="font-weight:700;color:var(--primary-blue);">
+                    <i class="fas fa-user-search"></i> Buscar Cliente
+                </label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <input type="text" id="buscaClienteManual" placeholder="Digite nome, email ou telefone..." 
+                           style="flex:1;min-width:180px;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;"
+                           oninput="buscarClientesManual()">
+                    <button onclick="buscarClientesManual()" class="btn-sm btn-edit" style="padding:8px 16px;">
+                        <i class="fas fa-search"></i> Buscar
+                    </button>
+                </div>
+                <div id="listaClientesManual" style="margin-top:8px;max-height:150px;overflow-y:auto;display:none;border:1px solid #ddd;border-radius:6px;background:white;">
+                    <!-- Resultados da busca -->
+                </div>
+                <div style="margin-top:6px;font-size:11px;color:#888;">
+                    <i class="fas fa-info-circle"></i> Digite para buscar clientes cadastrados
+                </div>
+            </div>
+            
+            <!-- DADOS DO CLIENTE (PREENCHE AUTOMATICAMENTE) -->
+            <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:12px;border:1px solid #e0e0e0;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cliente</label>
+                        <input type="text" id="visClienteNome" placeholder="Nome do cliente" 
+                               style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Telefone</label>
+                        <input type="text" id="visClienteTelefone" placeholder="(00) 00000-0000"
+                               style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="visClienteEmail" placeholder="email@exemplo.com"
+                               style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;">
+                    </div>
+                    <div class="form-group">
+                        <label>CPF/CNPJ</label>
+                        <input type="text" id="visClienteDocumento" placeholder="000.000.000-00"
+                               style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Endereço Completo</label>
+                    <input type="text" id="visClienteEndereco" placeholder="Rua, Número, Bairro, Cidade - UF"
+                           style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;">
+                </div>
+                <div class="form-group">
+                    <label>Forma de Pagamento</label>
+                    <select id="visPagamento" style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;">
+                        <option value="À vista">À vista</option>
+                        <option value="Pix">Pix</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                        <option value="Boleto">Boleto</option>
+                        <option value="Depósito/Transferência">Depósito/Transferência</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Observações do Pedido</label>
+                    <textarea id="visObs" rows="2" placeholder="Informações internas sobre o pedido..." 
+                              style="width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;"></textarea>
+                </div>
+            </div>
+            
+            <!-- BUSCA DE PRODUTOS (JÁ EXISTE) -->
             <div class="form-group">
                 <label>🔍 Buscar Produto</label>
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -2187,6 +2258,7 @@
                 </div>
             </div>
 
+            <!-- CARRINHO (JÁ EXISTE) -->
             <div style="border-top:2px solid #eee;padding-top:12px;margin-top:8px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
                     <h4 style="color:var(--primary-blue);font-size:14px;"><i class="fas fa-shopping-cart"></i> Itens do Pedido</h4>
@@ -2199,13 +2271,6 @@
                     <div style="text-align:center;padding:12px;color:#999;font-size:12px;">
                         Nenhum item adicionado
                     </div>
-                </div>
-                
-                <div class="form-group" style="margin-top:10px;">
-                    <label style="font-size:13px;font-weight:700;color:var(--primary-blue);">
-                        <i class="fas fa-sticky-note"></i> OBSERVAÇÕES DO PEDIDO (interno)
-                    </label>
-                    <textarea id="visObs" rows="2" placeholder="Informações internas sobre o pedido..." style="font-size:13px;width:100%;padding:8px 12px;border:2px solid #ddd;border-radius:6px;resize:vertical;"></textarea>
                 </div>
                 
                 <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
@@ -2860,7 +2925,136 @@ async function rejeitarAnalise(idCliente) {
 }
 
 
+// ============================================================
+// BUSCAR CLIENTES PARA PEDIDO MANUAL
+// ============================================================
+let clientesEncontrados = [];
 
+function buscarClientesManual() {
+    const busca = document.getElementById('buscaClienteManual').value.toLowerCase().trim();
+    const listaDiv = document.getElementById('listaClientesManual');
+    const container = document.getElementById('listaClientesManual');
+    
+    if (!busca || busca.length < 2) {
+        listaDiv.style.display = 'none';
+        return;
+    }
+    
+    // Filtra clientes
+    clientesEncontrados = dados.clientes.filter(c => {
+        const nome = String(c.nome || '').toLowerCase();
+        const email = String(c.email || '').toLowerCase();
+        const telefone = String(c.telefone || '').toLowerCase();
+        const documento = String(c.documento || c.cpf || '').toLowerCase();
+        return nome.includes(busca) || email.includes(busca) || 
+               telefone.includes(busca) || documento.includes(busca);
+    });
+    
+    if (clientesEncontrados.length === 0) {
+        container.innerHTML = `
+            <div style="padding:10px;text-align:center;color:#999;font-size:13px;">
+                <i class="fas fa-user-slash"></i> Nenhum cliente encontrado
+            </div>
+        `;
+        listaDiv.style.display = 'block';
+        return;
+    }
+    
+    // Mostra até 10 clientes
+    const maxMostrar = 10;
+    const mostrar = clientesEncontrados.slice(0, maxMostrar);
+    
+    container.innerHTML = mostrar.map(c => {
+        const documento = c.documento || c.cpf || '---';
+        const documentoFormatado = formatarDocumento(documento);
+        return `
+            <div onclick="selecionarClienteManual(${c.id_cliente})" 
+                 style="padding:8px 12px;border-bottom:1px solid #eee;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s;"
+                 onmouseover="this.style.background='#e8f4fd'" 
+                 onmouseout="this.style.background='white'">
+                <div>
+                    <strong>${c.nome || 'Sem nome'}</strong>
+                    <div style="font-size:11px;color:#888;">
+                        ${c.email || ''} ${c.telefone ? '| ' + c.telefone : ''}
+                    </div>
+                    <div style="font-size:10px;color:#999;">
+                        📄 ${documentoFormatado}
+                    </div>
+                </div>
+                <span style="font-size:11px;color:var(--primary-blue);">
+                    <i class="fas fa-chevron-right"></i>
+                </span>
+            </div>
+        `;
+    }).join('');
+    
+    if (clientesEncontrados.length > maxMostrar) {
+        container.innerHTML += `
+            <div style="padding:8px 12px;text-align:center;color:#888;font-size:12px;background:#f8f9fa;">
+                + ${clientesEncontrados.length - maxMostrar} clientes encontrados (digite mais para refinar)
+            </div>
+        `;
+    }
+    
+    listaDiv.style.display = 'block';
+}
+
+// ============================================================
+// FORMATAR DOCUMENTO
+// ============================================================
+function formatarDocumento(doc) {
+    if (!doc) return '---';
+    const limpo = String(doc).replace(/\D/g, '');
+    if (limpo.length === 11) {
+        return limpo.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    } else if (limpo.length === 14) {
+        return limpo.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+    }
+    return doc;
+}
+
+// ============================================================
+// SELECIONAR CLIENTE E PREENCHER DADOS
+// ============================================================
+function selecionarClienteManual(idCliente) {
+    const cliente = dados.clientes.find(c => parseInt(c.id_cliente) === parseInt(idCliente));
+    if (!cliente) {
+        alert('Cliente não encontrado!');
+        return;
+    }
+    
+    // 🔥 PREENCHE COM O NOME DO CLIENTE (NUNCA DEIXA VAZIO)
+    const nomeCliente = cliente.nome || 'Cliente não identificado';
+    
+    document.getElementById('visClienteNome').value = nomeCliente;
+    document.getElementById('visClienteTelefone').value = cliente.telefone || '';
+    document.getElementById('visClienteEmail').value = cliente.email || '';
+    
+    // Documento
+    const documento = cliente.documento || cliente.cpf || '';
+    document.getElementById('visClienteDocumento').value = formatarDocumento(documento);
+    
+    // Endereço completo
+    const enderecoCompleto = [
+        cliente.endereco || '',
+        cliente.numero || '',
+        cliente.complemento || '',
+        cliente.bairro || '',
+        cliente.cidade || '',
+        cliente.estado || '',
+        cliente.cep || ''
+    ].filter(Boolean).join(', ');
+    document.getElementById('visClienteEndereco').value = enderecoCompleto || '';
+    
+    // 🔥 ATUALIZA O CAMPO DE BUSCA COM O NOME DO CLIENTE
+    document.getElementById('buscaClienteManual').value = nomeCliente;
+    
+    // Fecha a lista de clientes
+    document.getElementById('listaClientesManual').style.display = 'none';
+    
+    // Feedback visual
+    mostrarNotificacao(`✅ Cliente "${nomeCliente}" selecionado!`, 'success');
+}
 
 
 // ============================================================
@@ -6247,15 +6441,64 @@ function visualizarPedidoManual() {
         return;
     }
     
-    document.getElementById('visClienteNome').value = 'Cliente não identificado';
-    document.getElementById('visClienteTelefone').value = '';
-    document.getElementById('visClienteEmail').value = '';
-    document.getElementById('visPagamento').value = 'À vista';
+    // 🔥 PEGA OS DADOS DIRETO DOS CAMPOS DO FORMULÁRIO
+    const clienteNome = document.getElementById('visClienteNome').value.trim();
+    const clienteTelefone = document.getElementById('visClienteTelefone').value.trim();
+    const clienteEmail = document.getElementById('visClienteEmail').value.trim();
+    const clienteDocumento = document.getElementById('visClienteDocumento').value.trim();
+    const clienteEndereco = document.getElementById('visClienteEndereco').value.trim();
+    const pagamento = document.getElementById('visPagamento').value || 'À vista';
+    
+    // 🔥 VERIFICA SE TEM CLIENTE OU ESTÁ VAZIO
+    const temCliente = clienteNome && clienteNome !== '' && clienteNome !== 'Cliente não identificado';
     
     const container = document.getElementById('visItensContainer');
     let total = 0;
+    let itensHtml = '';
     
-    container.innerHTML = carrinhoManual.map(item => {
+    // 🔥 CABEÇALHO CONDICIONAL - MOSTRA CLIENTE OU "NÃO IDENTIFICADO"
+    let dadosClienteHtml = '';
+    
+    if (temCliente) {
+        // 🔥 TEM CLIENTE SELECIONADO - MOSTRA TODOS OS DADOS
+        dadosClienteHtml = `
+            <div style="background:#f8f9fa;padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid #e0e0e0;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                    <div style="grid-column:1/-1;font-weight:700;color:var(--primary-blue);margin-bottom:4px;">
+                        <i class="fas fa-user-check"></i> Dados do Cliente
+                    </div>
+                    <div><strong>Nome:</strong> ${clienteNome}</div>
+                    <div><strong>Telefone:</strong> ${clienteTelefone || '-'}</div>
+                    <div><strong>Email:</strong> ${clienteEmail || '-'}</div>
+                    <div><strong>CPF/CNPJ:</strong> ${clienteDocumento || '-'}</div>
+                    <div style="grid-column:1/-1;"><strong>Endereço:</strong> ${clienteEndereco || '-'}</div>
+                    <div><strong>Pagamento:</strong> ${pagamento}</div>
+                </div>
+            </div>
+        `;
+    } else {
+        // 🔥 SEM CLIENTE - MOSTRA "NÃO IDENTIFICADO"
+        dadosClienteHtml = `
+            <div style="background:#fff3cd;padding:10px;border-radius:6px;margin-bottom:10px;border:1px solid #f39c12;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                    <div style="grid-column:1/-1;font-weight:700;color:#856404;margin-bottom:4px;">
+                        <i class="fas fa-user-slash"></i> Cliente não identificado
+                    </div>
+                    <div><strong>Nome:</strong> Cliente não identificado</div>
+                    <div><strong>Telefone:</strong> -</div>
+                    <div><strong>Email:</strong> -</div>
+                    <div><strong>CPF/CNPJ:</strong> -</div>
+                    <div style="grid-column:1/-1;"><strong>Endereço:</strong> -</div>
+                    <div><strong>Pagamento:</strong> ${pagamento}</div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // ============================================================
+    // ITENS DO PEDIDO
+    // ============================================================
+    carrinhoManual.forEach(item => {
         const subtotal = item.preco || 0;
         total += subtotal;
         const nomeExibicao = item.isCustom ? `${item.nome} (personalizado)` : item.nome;
@@ -6263,17 +6506,21 @@ function visualizarPedidoManual() {
         const prazo = isProducao ? item.prazoProducao : 0;
         const statusLabel = isProducao ? `🔨 Produção ${prazo}d` : '✅ Disponível';
         
-        return `
+        itensHtml += `
             <div class="item-resumo">
                 <span>${nomeExibicao} <span style="font-size:10px;color:#888;">${statusLabel}</span></span>
                 <span>${item.quantidade}x R$ ${(item.precoUnitario || 0).toFixed(2)} = <strong>R$ ${subtotal.toFixed(2)}</strong></span>
             </div>
         `;
-    }).join('');
+    });
+    
+    // ============================================================
+    // MONTA O CONTAINER COMPLETO
+    // ============================================================
+    container.innerHTML = dadosClienteHtml + itensHtml;
     
     document.getElementById('visTotalGeral').textContent = `R$ ${total.toFixed(2)}`;
     
-    // 🔥 CORREÇÃO: Se total for 0, mostra aviso
     if (total === 0) {
         container.innerHTML += `
             <div style="padding:8px;margin-top:8px;background:#fff3cd;border-radius:4px;text-align:center;font-size:12px;color:#856404;">
@@ -6282,8 +6529,26 @@ function visualizarPedidoManual() {
         `;
     }
     
+    // 🔥 ATUALIZA OS CAMPOS DE VISUALIZAÇÃO (PARA SALVAR DEPOIS)
+    document.getElementById('visClienteNome').value = clienteNome;
+    document.getElementById('visClienteTelefone').value = clienteTelefone;
+    document.getElementById('visClienteEmail').value = clienteEmail;
+    document.getElementById('visPagamento').value = pagamento;
+    
     document.getElementById('modalVisualizacaoPedido').classList.add('open');
 }
+
+
+// Fecha a lista de clientes ao clicar fora
+document.addEventListener('click', function(e) {
+    const lista = document.getElementById('listaClientesManual');
+    const busca = document.getElementById('buscaClienteManual');
+    if (lista && busca && !lista.contains(e.target) && e.target !== busca) {
+        lista.style.display = 'none';
+    }
+});
+
+
 
 function imprimirVisualizacaoPedido() {
     const printArea = document.getElementById('printArea');
@@ -6372,29 +6637,31 @@ async function finalizarPedidoManual() {
         return;
     }
     
-    let clienteNome = document.getElementById('visClienteNome')?.value || 'Cliente não identificado';
-    let clienteTelefone = document.getElementById('visClienteTelefone')?.value || '';
-    let clienteEmail = document.getElementById('visClienteEmail')?.value || '';
-    let pagamento = document.getElementById('visPagamento')?.value || 'À vista';
+    // 🔥 PEGA OS DADOS DOS CAMPOS
+    let clienteNome = document.getElementById('visClienteNome').value.trim();
+    const clienteTelefone = document.getElementById('visClienteTelefone').value.trim();
+    const clienteEmail = document.getElementById('visClienteEmail').value.trim();
+    const clienteDocumento = document.getElementById('visClienteDocumento').value.trim();
+    const clienteEndereco = document.getElementById('visClienteEndereco').value.trim();
+    const pagamento = document.getElementById('visPagamento').value || 'À vista';
+    const observacoesPedido = document.getElementById('visObs').value || '';
     
-    // 🔥 CORREÇÃO: PERGUNTA SE DESEJA CONTINUAR COM TOTAL 0,00
+    // 🔥 SE NÃO TIVER CLIENTE, USA "Cliente não identificado"
+    if (!clienteNome || clienteNome === '' || clienteNome === 'Cliente não identificado') {
+        clienteNome = 'Cliente não identificado';
+    }
+    
     const total = carrinhoManual.reduce((sum, item) => sum + (item.preco || 0), 0);
+    
     if (total === 0) {
         if (!confirm(`⚠️ O valor total do pedido é R$ 0,00.\n\nDeseja continuar mesmo assim?\n\nIsso dará baixa no estoque sem custo.`)) {
             return;
         }
     }
     
-    if (!document.getElementById('modalVisualizacaoPedido').classList.contains('open')) {
-        clienteNome = prompt('Nome do cliente:') || 'Cliente não identificado';
-        clienteTelefone = prompt('Telefone do cliente (opcional):') || '';
-        clienteEmail = prompt('Email do cliente (opcional):') || '';
-    }
-    
     mostrarSpinner('Criando pedido...');
     
     try {
-        // Busca o último ID
         const responseBusca = await fetch(API_URL);
         const dataBusca = await responseBusca.json();
         const pedidos = dataBusca.pedidos || [];
@@ -6434,6 +6701,7 @@ async function finalizarPedidoManual() {
             };
         });
         
+        // 🔥 MONTA O PEDIDO COM TODOS OS DADOS
         const pedidoData = {
             id: novoId,
             cliente_nome: clienteNome,
@@ -6441,8 +6709,8 @@ async function finalizarPedidoManual() {
             cliente_telefone: clienteTelefone || '',
             itens: itensPedido,
             total: total,
-            endereco_entrega: 'Pedido manual - retirada na loja',
-            observacoes: 'Pedido realizado manualmente pelo gestor. ' + (document.getElementById('visObs')?.value || ''),
+            endereco_entrega: clienteEndereco || 'Pedido manual - retirada na loja',
+            observacoes: 'Pedido realizado manualmente pelo gestor. ' + observacoesPedido,
             frete: 'Retirada na Loja',
             frete_valor: 0,
             pagamento: pagamento || 'À vista',
@@ -6454,10 +6722,12 @@ async function finalizarPedidoManual() {
                 hour: '2-digit',
                 minute: '2-digit',
                 hour12: false
-            })
+            }),
+            cliente_documento: clienteDocumento,
+            cliente_endereco: clienteEndereco
         };
         
-        console.log('📤 Enviando pedido (total R$ ' + total.toFixed(2) + '):', pedidoData);
+        console.log('📤 Enviando pedido manual:', pedidoData);
         
         await fetch(API_URL, {
             method: 'POST',
@@ -6469,7 +6739,7 @@ async function finalizarPedidoManual() {
             })
         });
         
-        // Baixar estoque (mesmo com valor 0,00)
+        // Baixar estoque
         const atualizacoes = {};
         carrinhoManual.forEach(item => {
             const isProducao = item.isProducao || false;
@@ -6502,10 +6772,14 @@ async function finalizarPedidoManual() {
         
         esconderSpinner();
         
+        const mensagemCliente = clienteNome === 'Cliente não identificado' ? 
+            '⚠️ Cliente não identificado' : 
+            `👤 Cliente: ${clienteNome}`;
+        
         if (total === 0) {
-            alert(`✅ Pedido #${novoId} criado com sucesso!\n\n📦 ESTOQUE BAIXADO: ${carrinhoManual.length} produto(s)\n💰 Valor: R$ 0,00`);
+            alert(`✅ Pedido #${novoId} criado com sucesso!\n\n📦 ESTOQUE BAIXADO: ${carrinhoManual.length} produto(s)\n💰 Valor: R$ 0,00\n${mensagemCliente}`);
         } else {
-            alert(`✅ Pedido #${novoId} criado com sucesso! Total: R$ ${total.toFixed(2)}`);
+            alert(`✅ Pedido #${novoId} criado com sucesso!\nTotal: R$ ${total.toFixed(2)}\n${mensagemCliente}`);
         }
         
         fecharModal('modalPedidoManual');
@@ -6531,7 +6805,7 @@ carregarDados();
 let intervaloAtualizacao = null;
 
 function iniciarAtualizacaoAutomatica() {
-    // Cancela o intervalo anterior se existir
+    // Cancela ovisualizarPedidoManual intervalo anterior se existir
     if (intervaloAtualizacao) {
         clearInterval(intervaloAtualizacao);
     }
